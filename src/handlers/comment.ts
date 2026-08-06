@@ -8,10 +8,12 @@
 
 import type { FlueSession } from '@flue/runtime';
 import * as v from 'valibot';
-import type { IssueDetails, RepoLabel } from '../github.ts';
+import type { IssueDetails, RepoLabel } from '../forge/index.ts';
 
 interface CommentArgs {
 	branchName: string | null;
+	/** Forge-specific URL for reviewing the fix branch, or null when unpushed. */
+	compareUrl: string | null;
 	priorityLabels: RepoLabel[];
 	issueDetails: IssueDetails;
 	repo: string;
@@ -55,7 +57,7 @@ The comment must start with an at-a-glance summary, followed by short explanatio
 
 \`\`\`markdown
 - **Reproduced:** [Yes / No / Skipped — reason]
-- **Exploration:** [Yes / No / Partial / Already fixed on main] [If branchName is non-null: — [View branch](https://github.com/{repo}/compare/{branchName}?expand=1)]
+- **Exploration:** [Yes / No / Partial / Already fixed on the base branch] [If a Branch URL is given in the Context section below: — [View branch]({that exact URL, copied verbatim})]
 - **Unit Test:** [Yes — path/to/test.test.ts / No — reason]
 - **Priority:** [See Priority Instructions above]
 
@@ -94,6 +96,7 @@ export async function generateComment(session: FlueSession, args: CommentArgs): 
 
 - **Issue:** #${args.issueDetails.number} — ${args.issueDetails.title}
 - **Branch:** ${args.branchName ?? '(none)'}
+- **Branch URL:** ${args.compareUrl ?? '(none)'}
 - **Repo:** ${args.repo}
 - **Preview Release:** ${args.previewRelease ? args.previewRelease.urls.join(', ') : '(none)'}
 

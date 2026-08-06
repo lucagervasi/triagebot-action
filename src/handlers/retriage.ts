@@ -9,7 +9,6 @@ import { local } from '@flue/runtime/node';
 import * as v from 'valibot';
 import type { ActionContext } from '../context.ts';
 import { createSession } from '../flue.ts';
-import { fetchIssueDetails, swapLabel } from '../github.ts';
 import { countTriageFailures, handleTriage, MAX_TRIAGE_FAILURES } from './triage.ts';
 
 export async function handleRetriage(
@@ -17,7 +16,7 @@ export async function handleRetriage(
 	currentLabel: string,
 	ctx: ActionContext,
 ): Promise<void> {
-	const issueDetails = await fetchIssueDetails(ctx.repo, issueNumber, ctx.readToken);
+	const issueDetails = await ctx.forge.fetchIssueDetails(issueNumber, ctx.readToken);
 	if (
 		currentLabel === ctx.labels.failed &&
 		countTriageFailures(issueDetails) >= MAX_TRIAGE_FAILURES
@@ -72,6 +71,6 @@ Return only "yes" or "no" inside the ---RESULT_START--- / ---RESULT_END--- block
 
 	// New info found — swap to needs-triage and run full triage.
 	console.info(`Retriaging issue #${issueNumber}`);
-	await swapLabel(ctx.repo, issueNumber, currentLabel, ctx.labels.needsTriage, ctx.writeToken);
+	await ctx.forge.swapLabel(issueNumber, currentLabel, ctx.labels.needsTriage, ctx.writeToken);
 	await handleTriage(issueNumber, ctx);
 }

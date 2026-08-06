@@ -11,27 +11,17 @@ import { local } from '@flue/runtime/node';
 import * as v from 'valibot';
 import type { ActionContext } from '../context.ts';
 import { createSession } from '../flue.ts';
-import {
-	addLabels,
-	createPullRequest,
-	fetchIssueDetails,
-	findBranch,
-	findPullRequest,
-	postComment,
-	swapLabel,
-} from '../github.ts';
 import { generatePRContent } from '../pr.ts';
 
 export async function handleVerifyFix(issueNumber: number, ctx: ActionContext): Promise<void> {
-	const branch = await findBranch(
-		ctx.repo,
+	const branch = await ctx.forge.findBranch(
 		[`triagebot/fix-${issueNumber}`, `flue/fix-${issueNumber}`],
 		ctx.readToken,
 	);
 	if (!branch) {
 		throw new Error(`No fix branch found for issue #${issueNumber}`);
 	}
-	const issueDetails = await fetchIssueDetails(ctx.repo, issueNumber, ctx.readToken);
+	const issueDetails = await ctx.forge.fetchIssueDetails(issueNumber, ctx.readToken);
 
 	// Find the latest non-bot comment.
 	const latestUserComment = [...issueDetails.comments]
@@ -120,8 +110,7 @@ Return your classification.`,
 	}
 
 	if (classification.status === 'rejected') {
-		await swapLabel(
-			ctx.repo,
+		await ctx.forge.swapLabel(
 			issueNumber,
 			ctx.labels.fixPending,
 			ctx.labels.fixRejected,
@@ -131,19 +120,17 @@ Return your classification.`,
 	}
 
 	// Check if a PR already exists.
-	const existingPr = await findPullRequest(ctx.repo, branch, ctx.readToken);
+	const existingPr = await ctx.forge.findPullRequest(branch, ctx.readToken);
 
 	if (existingPr) {
 		console.info(`PR already exists: ${existingPr.html_url}`);
-		await swapLabel(
-			ctx.repo,
+		await ctx.forge.swapLabel(
 			issueNumber,
 			ctx.labels.fixPending,
 			ctx.labels.fixVerified,
 			ctx.writeToken,
 		);
-		await postComment(
-			ctx.repo,
+		await ctx.forge.postComment(
 			issueNumber,
 			`The fix has been verified! A pull request already exists: ${existingPr.html_url}`,
 			ctx.writeToken,
@@ -156,28 +143,26 @@ Return your classification.`,
 		issueNumber,
 		issueDetails,
 		branch,
+		baseBranch: ctx.baseBranch,
 		confirmedBy: latestUserComment.author.login,
 	};
 	const prContent = await generatePRContent(session, prOpts, ctx);
 
-	const pr = await createPullRequest(
-		ctx.repo,
-		{ head: branch, base: 'main', title: prContent.title, body: prContent.body },
+	const pr = await ctx.forge.createPullRequest(
+		{ head: branch, base: ctx.baseBranch, title: prContent.title, body: prContent.body },
 		ctx.writeToken,
 	);
 
 	console.info(`PR created: ${pr.html_url}`);
-	await addLabels(ctx.repo, pr.number, [ctx.labels.prFixVerified], ctx.writeToken);
-	await swapLabel(
-		ctx.repo,
+	await ctx.forge.addLabels(pr.number, [ctx.labels.prFixVerified], ctx.writeToken);
+	await ctx.forge.swapLabel(
 		issueNumber,
 		ctx.labels.fixPending,
 		ctx.labels.fixVerified,
 		ctx.writeToken,
 	);
 
-	await postComment(
-		ctx.repo,
+	await ctx.forge.postComment(
 		issueNumber,
 		`The fix has been verified! A pull request has been created: ${pr.html_url}`,
 		ctx.writeToken,

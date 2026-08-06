@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { afterEach, describe, it } from 'node:test';
 import type { ActionContext } from '../../src/context.ts';
+import { createForge } from '../../src/forge/index.ts';
 import { handleVerifyFix } from '../../src/handlers/verify-fix.ts';
 import { labelConfigFromInputs } from '../../src/labels.ts';
 
@@ -154,7 +155,15 @@ describe('handleVerifyFix integration', () => {
 		};
 
 		const ctx: ActionContext = {
+			forge: createForge({
+				kind: 'github',
+				repo: 'withastro/astro',
+				serverUrl: 'https://github.com',
+				apiUrl: 'https://api.github.com',
+			}),
 			repo: 'withastro/astro',
+			baseBranch: 'main',
+			previewReleaseCommand: null,
 			readToken: 'read-token',
 			writeToken: 'write-token',
 			anthropicApiKey: 'test-key',

@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, it } from 'node:test';
 import type { ActionContext } from '../../src/context.ts';
+import { createForge } from '../../src/forge/index.ts';
 import { handleTriage } from '../../src/handlers/triage.ts';
 import { labelConfigFromInputs } from '../../src/labels.ts';
 
@@ -217,7 +218,15 @@ describe('mocked triage flow', () => {
 		};
 
 		const ctx: ActionContext = {
+			forge: createForge({
+				kind: 'github',
+				repo: 'withastro/astro',
+				serverUrl: 'https://github.com',
+				apiUrl: 'https://api.github.com',
+			}),
 			repo: 'withastro/astro',
+			baseBranch: 'main',
+			previewReleaseCommand: null,
 			readToken: 'read-token',
 			writeToken: 'write-token',
 			anthropicApiKey: 'test-key',
@@ -320,7 +329,15 @@ describe('mocked triage flow', () => {
 		};
 
 		const ctx: ActionContext = {
+			forge: createForge({
+				kind: 'github',
+				repo: 'withastro/astro',
+				serverUrl: 'https://github.com',
+				apiUrl: 'https://api.github.com',
+			}),
 			repo: 'withastro/astro',
+			baseBranch: 'main',
+			previewReleaseCommand: null,
 			readToken: 'read-token',
 			writeToken: 'write-token',
 			anthropicApiKey: 'test-key',
@@ -440,7 +457,15 @@ describe('mocked triage flow', () => {
 		};
 
 		const ctx: ActionContext = {
+			forge: createForge({
+				kind: 'github',
+				repo: 'withastro/astro',
+				serverUrl: 'https://github.com',
+				apiUrl: 'https://api.github.com',
+			}),
 			repo: 'withastro/astro',
+			baseBranch: 'main',
+			previewReleaseCommand: null,
 			readToken: 'read-token',
 			writeToken: 'write-token',
 			anthropicApiKey: 'test-key',
@@ -470,5 +495,118 @@ describe('mocked triage flow', () => {
 		// The reporter comment links the opened PR.
 		assert.equal(comments.length, 1);
 		assert.match(comments[0], /pull\/456/);
+	});
+
+	it('drives the same flow against a Gitea instance, addressing labels by id', async () => {
+		const triageSkill = setupRepo();
+		process.env.ANTHROPIC_API_KEY = 'test-key';
+		const comments: string[] = [];
+		const addedLabelIds: number[][] = [];
+		const deletedLabelPaths: string[] = [];
+		let anthropicCalls = 0;
+
+		// Note: no "triage: unable to reproduce" here. Gitea does not create
+		// labels implicitly, so the adapter has to create it before applying it.
+		const repoLabels = [
+			{ id: 7, name: 'triage: needs triage', description: 'waiting' },
+			{ id: 11, name: '- P3: minor bug', description: 'Minor bug' },
+			{ id: 12, name: 'pkg: astro', description: 'Core package' },
+		];
+		let createdLabelName: string | null = null;
+
+		globalThis.fetch = async (input, init) => {
+			const url = String(input);
+			const method = init?.method ?? 'GET';
+
+			if (url.startsWith('https://api.anthropic.com/')) {
+				anthropicCalls += 1;
+				if (anthropicCalls > 5) throw new Error('Too many mocked Anthropic calls');
+				if (anthropicCalls === 1) {
+					return anthropicStream({ reproducible: false, skipped: false, skippedReason: null });
+				}
+				return anthropicStream({
+					result:
+						'- **Reproduced:** No\n- **Exploration:** No\n- **Unit Test:** No\n- **Priority:** Priority P3: Minor bug.\n',
+				});
+			}
+
+			// Everything below must sit under the instance's /api/v1 base.
+			assert.ok(
+				url.startsWith('https://gitea.example.com/api/v1/'),
+				`call escaped the Gitea API base: ${url}`,
+			);
+
+			if (url.endsWith('/repos/acme/widgets/issues/123')) {
+				return jsonResponse({
+					title: 'Example issue',
+					body: 'Issue body',
+					user: { login: 'reporter' },
+					labels: [{ name: 'triage: needs triage' }],
+					created_at: '2026-01-01T00:00:00Z',
+					state: 'open',
+					number: 123,
+					html_url: 'https://gitea.example.com/acme/widgets/issues/123',
+				});
+			}
+			// Gitea paginates with limit/page, not per_page.
+			if (url.includes('/issues/123/comments?limit=100&page=1')) return jsonResponse([]);
+			if (url.includes('/repos/acme/widgets/labels?limit=100&page=1')) {
+				return jsonResponse(repoLabels);
+			}
+			if (url.endsWith('/repos/acme/widgets/labels') && method === 'POST') {
+				createdLabelName = JSON.parse(String(init?.body)).name;
+				const created = { id: 42, name: createdLabelName, description: '' };
+				repoLabels.push(created);
+				return jsonResponse(created);
+			}
+			if (url.endsWith('/issues/123/comments') && method === 'POST') {
+				comments.push(JSON.parse(String(init?.body)).body);
+				return jsonResponse({});
+			}
+			if (url.includes('/issues/123/labels/') && method === 'DELETE') {
+				deletedLabelPaths.push(url.split('/').at(-1) ?? '');
+				return new Response(null, { status: 204 });
+			}
+			if (url.endsWith('/issues/123/labels') && method === 'POST') {
+				addedLabelIds.push(JSON.parse(String(init?.body)).labels);
+				return jsonResponse([]);
+			}
+			throw new Error(`Unexpected fetch: ${method} ${url}`);
+		};
+
+		const ctx: ActionContext = {
+			forge: createForge({
+				kind: 'gitea',
+				repo: 'acme/widgets',
+				serverUrl: 'https://gitea.example.com',
+				apiUrl: 'https://gitea.example.com/api/v1',
+			}),
+			repo: 'acme/widgets',
+			baseBranch: 'main',
+			previewReleaseCommand: null,
+			readToken: 'read-token',
+			writeToken: 'write-token',
+			anthropicApiKey: 'test-key',
+			triageSkill,
+			prSkill: null,
+			prSkillName: 'astro-pr-writer',
+			autoPrOnFix: false,
+			buildCommand: null,
+			triageModel: 'anthropic/claude-sonnet-4-6',
+			verificationModel: 'anthropic/claude-sonnet-4-6',
+			labels: labelConfigFromInputs(() => ''),
+			botLogins: ['gitea-actions[bot]'],
+		};
+
+		await withTimeout(handleTriage(123, ctx), 10_000);
+
+		assert.equal(anthropicCalls, 2);
+		assert.equal(comments.length, 1);
+		assert.match(comments[0], /Reproduced/);
+		// The old label came off by numeric id, not by name.
+		assert.deepEqual(deletedLabelPaths, ['7']);
+		// The new state label did not exist, so it was created and then applied.
+		assert.equal(createdLabelName, 'triage: unable to reproduce');
+		assert.deepEqual(addedLabelIds, [[42]]);
 	});
 });

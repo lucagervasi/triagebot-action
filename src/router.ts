@@ -1,6 +1,6 @@
 /**
- * FSM router. Determines which handler to run based on the GitHub event
- * type and the current triage label on the issue.
+ * FSM router. Determines which handler to run based on the normalized forge
+ * event type and the current triage label on the issue.
  */
 
 import type { LabelConfig } from './labels.ts';
@@ -13,7 +13,7 @@ export type Action =
 	| { type: 'cleanup'; issueNumber: number }
 	| { type: 'skip'; reason: string };
 
-export interface GitHubEvent {
+export interface TriageEvent {
 	action: string;
 	isPullRequest: boolean;
 	issueNumber: number;
@@ -23,7 +23,7 @@ export interface GitHubEvent {
 	botLogins: string[];
 }
 
-export function route(event: GitHubEvent, labels: LabelConfig): Action {
+export function route(event: TriageEvent, labels: LabelConfig): Action {
 	const { action, isPullRequest, issueNumber, issueLabels, commentAuthor, botLogins } = event;
 
 	// Never act on pull requests.

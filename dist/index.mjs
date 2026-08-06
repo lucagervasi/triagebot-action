@@ -152,11 +152,11 @@ var init_error = __esm({
     OpenAIError = class extends Error {
     };
     APIError = class _APIError extends OpenAIError {
-      constructor(status, error51, message, headers2) {
+      constructor(status, error51, message, headers) {
         super(`${_APIError.makeMessage(status, error51, message)}`);
         this.status = status;
-        this.headers = headers2;
-        this.requestID = headers2?.get("x-request-id");
+        this.headers = headers;
+        this.requestID = headers?.get("x-request-id");
         this.error = error51;
         const data = error51;
         this.code = data?.["code"];
@@ -176,36 +176,36 @@ var init_error = __esm({
         }
         return "(no status code or body)";
       }
-      static generate(status, errorResponse, message, headers2) {
-        if (!status || !headers2) {
+      static generate(status, errorResponse, message, headers) {
+        if (!status || !headers) {
           return new APIConnectionError({ message, cause: castToError(errorResponse) });
         }
         const error51 = errorResponse?.["error"];
         if (status === 400) {
-          return new BadRequestError(status, error51, message, headers2);
+          return new BadRequestError(status, error51, message, headers);
         }
         if (status === 401) {
-          return new AuthenticationError(status, error51, message, headers2);
+          return new AuthenticationError(status, error51, message, headers);
         }
         if (status === 403) {
-          return new PermissionDeniedError(status, error51, message, headers2);
+          return new PermissionDeniedError(status, error51, message, headers);
         }
         if (status === 404) {
-          return new NotFoundError(status, error51, message, headers2);
+          return new NotFoundError(status, error51, message, headers);
         }
         if (status === 409) {
-          return new ConflictError(status, error51, message, headers2);
+          return new ConflictError(status, error51, message, headers);
         }
         if (status === 422) {
-          return new UnprocessableEntityError(status, error51, message, headers2);
+          return new UnprocessableEntityError(status, error51, message, headers);
         }
         if (status === 429) {
-          return new RateLimitError(status, error51, message, headers2);
+          return new RateLimitError(status, error51, message, headers);
         }
         if (status >= 500) {
-          return new InternalServerError(status, error51, message, headers2);
+          return new InternalServerError(status, error51, message, headers);
         }
-        return new _APIError(status, error51, message, headers2);
+        return new _APIError(status, error51, message, headers);
       }
     };
     APIUserAbortError = class extends APIError {
@@ -543,7 +543,7 @@ var init_shims = __esm({
 var FallbackEncoder;
 var init_request_options = __esm({
   "node_modules/.pnpm/openai@6.26.0_ws@8.21.0_zod@4.4.3/node_modules/openai/internal/request-options.mjs"() {
-    FallbackEncoder = ({ headers: headers2, body }) => {
+    FallbackEncoder = ({ headers, body }) => {
       return {
         bodyHeaders: {
           "content-type": "application/json"
@@ -3442,11 +3442,11 @@ var init_shared = __esm({
 });
 
 // node_modules/.pnpm/openai@6.26.0_ws@8.21.0_zod@4.4.3/node_modules/openai/internal/headers.mjs
-function* iterateHeaders(headers2) {
-  if (!headers2)
+function* iterateHeaders(headers) {
+  if (!headers)
     return;
-  if (brand_privateNullableHeaders in headers2) {
-    const { values, nulls } = headers2;
+  if (brand_privateNullableHeaders in headers) {
+    const { values, nulls } = headers;
     yield* values.entries();
     for (const name of nulls) {
       yield [name, null];
@@ -3455,13 +3455,13 @@ function* iterateHeaders(headers2) {
   }
   let shouldClear = false;
   let iter;
-  if (headers2 instanceof Headers) {
-    iter = headers2.entries();
-  } else if (isReadonlyArray(headers2)) {
-    iter = headers2;
+  if (headers instanceof Headers) {
+    iter = headers.entries();
+  } else if (isReadonlyArray(headers)) {
+    iter = headers;
   } else {
     shouldClear = true;
-    iter = Object.entries(headers2 ?? {});
+    iter = Object.entries(headers ?? {});
   }
   for (let row of iter) {
     const name = row[0];
@@ -3488,9 +3488,9 @@ var init_headers = __esm({
     buildHeaders = (newHeaders) => {
       const targetHeaders = new Headers();
       const nullHeaders = /* @__PURE__ */ new Set();
-      for (const headers2 of newHeaders) {
+      for (const headers of newHeaders) {
         const seenHeaders = /* @__PURE__ */ new Set();
-        for (const [name, value] of iterateHeaders(headers2)) {
+        for (const [name, value] of iterateHeaders(headers)) {
           const lowerName = name.toLowerCase();
           if (!seenHeaders.has(lowerName)) {
             targetHeaders.delete(name);
@@ -4738,7 +4738,7 @@ var init_runs = __esm({
        * https://platform.openai.com/docs/assistants/how-it-works/runs-and-run-steps
        */
       async poll(runId, params, options) {
-        const headers2 = buildHeaders([
+        const headers = buildHeaders([
           options?.headers,
           {
             "X-Stainless-Poll-Helper": "true",
@@ -4748,7 +4748,7 @@ var init_runs = __esm({
         while (true) {
           const { data: run, response } = await this.retrieve(runId, params, {
             ...options,
-            headers: { ...options?.headers, ...headers2 }
+            headers: { ...options?.headers, ...headers }
           }).withResponse();
           switch (run.status) {
             //If we are in any sort of intermediate state we poll
@@ -6920,7 +6920,7 @@ var init_file_batches = __esm({
        * check batch.file_counts.failed_count to handle this case.
        */
       async poll(vectorStoreID, batchID, options) {
-        const headers2 = buildHeaders([
+        const headers = buildHeaders([
           options?.headers,
           {
             "X-Stainless-Poll-Helper": "true",
@@ -6930,7 +6930,7 @@ var init_file_batches = __esm({
         while (true) {
           const { data: batch, response } = await this.retrieve(batchID, { vector_store_id: vectorStoreID }, {
             ...options,
-            headers: headers2
+            headers
           }).withResponse();
           switch (batch.status) {
             case "in_progress":
@@ -7065,7 +7065,7 @@ var init_files3 = __esm({
        * file.last_error and file.status to handle these cases
        */
       async poll(vectorStoreID, fileID, options) {
-        const headers2 = buildHeaders([
+        const headers = buildHeaders([
           options?.headers,
           {
             "X-Stainless-Poll-Helper": "true",
@@ -7075,7 +7075,7 @@ var init_files3 = __esm({
         while (true) {
           const fileResponse = await this.retrieve(fileID, {
             vector_store_id: vectorStoreID
-          }, { ...options, headers: headers2 }).withResponse();
+          }, { ...options, headers }).withResponse();
           const file2 = fileResponse.data;
           switch (file2.status) {
             case "in_progress":
@@ -7284,8 +7284,8 @@ var init_webhooks = __esm({
       /**
        * Validates that the given payload was sent by OpenAI and parses the payload.
        */
-      async unwrap(payload, headers2, secret = this._client.webhookSecret, tolerance = 300) {
-        await this.verifySignature(payload, headers2, secret, tolerance);
+      async unwrap(payload, headers, secret = this._client.webhookSecret, tolerance = 300) {
+        await this.verifySignature(payload, headers, secret, tolerance);
         return JSON.parse(payload);
       }
       /**
@@ -7298,12 +7298,12 @@ var init_webhooks = __esm({
        * @param secret - The webhook secret (optional, will use client secret if not provided)
        * @param tolerance - Maximum age of the webhook in seconds (default: 300 = 5 minutes)
        */
-      async verifySignature(payload, headers2, secret = this._client.webhookSecret, tolerance = 300) {
+      async verifySignature(payload, headers, secret = this._client.webhookSecret, tolerance = 300) {
         if (typeof crypto === "undefined" || typeof crypto.subtle.importKey !== "function" || typeof crypto.subtle.verify !== "function") {
           throw new Error("Webhook signature verification is only supported when the `crypto` global is defined");
         }
         __classPrivateFieldGet(this, _Webhooks_instances, "m", _Webhooks_validateSecret).call(this, secret);
-        const headersObj = buildHeaders([headers2]).values;
+        const headersObj = buildHeaders([headers]).values;
         const signatureHeader = __classPrivateFieldGet(this, _Webhooks_instances, "m", _Webhooks_getRequiredHeader).call(this, headersObj, "webhook-signature");
         const timestamp = __classPrivateFieldGet(this, _Webhooks_instances, "m", _Webhooks_getRequiredHeader).call(this, headersObj, "webhook-timestamp");
         const webhookId = __classPrivateFieldGet(this, _Webhooks_instances, "m", _Webhooks_getRequiredHeader).call(this, headersObj, "webhook-id");
@@ -7340,11 +7340,11 @@ var init_webhooks = __esm({
       if (typeof secret !== "string" || secret.length === 0) {
         throw new Error(`The webhook secret must either be set using the env var, OPENAI_WEBHOOK_SECRET, on the client class, OpenAI({ webhookSecret: '123' }), or passed to this function`);
       }
-    }, _Webhooks_getRequiredHeader = function _Webhooks_getRequiredHeader2(headers2, name) {
-      if (!headers2) {
+    }, _Webhooks_getRequiredHeader = function _Webhooks_getRequiredHeader2(headers, name) {
+      if (!headers) {
         throw new Error(`Headers are required`);
       }
-      const value = headers2.get(name);
+      const value = headers.get(name);
       if (value === null || value === void 0) {
         throw new Error(`Missing required header: ${name}`);
       }
@@ -7553,8 +7553,8 @@ var init_client = __esm({
       defaultIdempotencyKey() {
         return `stainless-node-retry-${uuid4()}`;
       }
-      makeStatusError(status, error51, message, headers2) {
-        return APIError.generate(status, error51, message, headers2);
+      makeStatusError(status, error51, message, headers) {
+        return APIError.generate(status, error51, message, headers);
       }
       async _callApiKey() {
         const apiKey = this._options.apiKey;
@@ -7830,7 +7830,7 @@ var init_client = __esm({
             options.idempotencyKey = this.defaultIdempotencyKey();
           idempotencyHeaders[this.idempotencyHeader] = options.idempotencyKey;
         }
-        const headers2 = buildHeaders([
+        const headers = buildHeaders([
           idempotencyHeaders,
           {
             Accept: "application/json",
@@ -7846,8 +7846,8 @@ var init_client = __esm({
           bodyHeaders,
           options.headers
         ]);
-        this.validateHeaders(headers2);
-        return headers2.values;
+        this.validateHeaders(headers);
+        return headers.values;
       }
       _makeAbort(controller) {
         return () => controller.abort();
@@ -7856,11 +7856,11 @@ var init_client = __esm({
         if (!body) {
           return { bodyHeaders: void 0, body: void 0 };
         }
-        const headers2 = buildHeaders([rawHeaders]);
+        const headers = buildHeaders([rawHeaders]);
         if (
           // Pass raw type verbatim
           ArrayBuffer.isView(body) || body instanceof ArrayBuffer || body instanceof DataView || typeof body === "string" && // Preserve legacy string encoding behavior for now
-          headers2.values.has("content-type") || // `Blob` is superset of `File`
+          headers.values.has("content-type") || // `Blob` is superset of `File`
           globalThis.Blob && body instanceof globalThis.Blob || // `FormData` -> `multipart/form-data`
           body instanceof FormData || // `URLSearchParams` -> `application/x-www-form-urlencoded`
           body instanceof URLSearchParams || // Send chunked stream (each chunk has own `length`)
@@ -7869,13 +7869,13 @@ var init_client = __esm({
           return { bodyHeaders: void 0, body };
         } else if (typeof body === "object" && (Symbol.asyncIterator in body || Symbol.iterator in body && "next" in body && typeof body.next === "function")) {
           return { bodyHeaders: void 0, body: ReadableStreamFrom(body) };
-        } else if (typeof body === "object" && headers2.values.get("content-type") === "application/x-www-form-urlencoded") {
+        } else if (typeof body === "object" && headers.values.get("content-type") === "application/x-www-form-urlencoded") {
           return {
             bodyHeaders: { "content-type": "application/x-www-form-urlencoded" },
             body: this.stringifyQuery(body)
           };
         } else {
-          return __classPrivateFieldGet(this, _OpenAI_encoder, "f").call(this, { body, headers: headers2 });
+          return __classPrivateFieldGet(this, _OpenAI_encoder, "f").call(this, { body, headers });
         }
       }
     };
@@ -8034,9 +8034,9 @@ var init_openai = __esm({
 });
 
 // node_modules/.pnpm/@earendil-works+pi-ai@0.79.6_@modelcontextprotocol+sdk@1.29.0_zod@4.4.3__ws@8.21.0_zod@4.4.3/node_modules/@earendil-works/pi-ai/dist/utils/headers.js
-function headersToRecord(headers2) {
+function headersToRecord(headers) {
   const result = {};
-  for (const [key, value] of headers2.entries()) {
+  for (const [key, value] of headers.entries()) {
     result[key] = value;
   }
   return result;
@@ -25525,11 +25525,11 @@ var init_error3 = __esm({
     AnthropicError = class extends Error {
     };
     APIError2 = class _APIError extends AnthropicError {
-      constructor(status, error51, message, headers2, type) {
+      constructor(status, error51, message, headers, type) {
         super(`${_APIError.makeMessage(status, error51, message)}`);
         this.status = status;
-        this.headers = headers2;
-        this.requestID = headers2?.get("request-id");
+        this.headers = headers;
+        this.requestID = headers?.get("request-id");
         this.error = error51;
         this.type = type ?? null;
       }
@@ -25546,37 +25546,37 @@ var init_error3 = __esm({
         }
         return "(no status code or body)";
       }
-      static generate(status, errorResponse, message, headers2) {
-        if (!status || !headers2) {
+      static generate(status, errorResponse, message, headers) {
+        if (!status || !headers) {
           return new APIConnectionError2({ message, cause: castToError2(errorResponse) });
         }
         const error51 = errorResponse;
         const type = error51?.["error"]?.["type"];
         if (status === 400) {
-          return new BadRequestError2(status, error51, message, headers2, type);
+          return new BadRequestError2(status, error51, message, headers, type);
         }
         if (status === 401) {
-          return new AuthenticationError2(status, error51, message, headers2, type);
+          return new AuthenticationError2(status, error51, message, headers, type);
         }
         if (status === 403) {
-          return new PermissionDeniedError2(status, error51, message, headers2, type);
+          return new PermissionDeniedError2(status, error51, message, headers, type);
         }
         if (status === 404) {
-          return new NotFoundError2(status, error51, message, headers2, type);
+          return new NotFoundError2(status, error51, message, headers, type);
         }
         if (status === 409) {
-          return new ConflictError2(status, error51, message, headers2, type);
+          return new ConflictError2(status, error51, message, headers, type);
         }
         if (status === 422) {
-          return new UnprocessableEntityError2(status, error51, message, headers2, type);
+          return new UnprocessableEntityError2(status, error51, message, headers, type);
         }
         if (status === 429) {
-          return new RateLimitError2(status, error51, message, headers2, type);
+          return new RateLimitError2(status, error51, message, headers, type);
         }
         if (status >= 500) {
-          return new InternalServerError2(status, error51, message, headers2, type);
+          return new InternalServerError2(status, error51, message, headers, type);
         }
-        return new _APIError(status, error51, message, headers2, type);
+        return new _APIError(status, error51, message, headers, type);
       }
     };
     APIUserAbortError2 = class extends APIError2 {
@@ -25896,7 +25896,7 @@ var init_shims2 = __esm({
 var FallbackEncoder2;
 var init_request_options2 = __esm({
   "node_modules/.pnpm/@anthropic-ai+sdk@0.91.1_zod@4.4.3/node_modules/@anthropic-ai/sdk/internal/request-options.mjs"() {
-    FallbackEncoder2 = ({ headers: headers2, body }) => {
+    FallbackEncoder2 = ({ headers, body }) => {
       return {
         bodyHeaders: {
           "content-type": "application/json"
@@ -26811,11 +26811,11 @@ var init_resource2 = __esm({
 });
 
 // node_modules/.pnpm/@anthropic-ai+sdk@0.91.1_zod@4.4.3/node_modules/@anthropic-ai/sdk/internal/headers.mjs
-function* iterateHeaders2(headers2) {
-  if (!headers2)
+function* iterateHeaders2(headers) {
+  if (!headers)
     return;
-  if (brand_privateNullableHeaders2 in headers2) {
-    const { values, nulls } = headers2;
+  if (brand_privateNullableHeaders2 in headers) {
+    const { values, nulls } = headers;
     yield* values.entries();
     for (const name of nulls) {
       yield [name, null];
@@ -26824,13 +26824,13 @@ function* iterateHeaders2(headers2) {
   }
   let shouldClear = false;
   let iter;
-  if (headers2 instanceof Headers) {
-    iter = headers2.entries();
-  } else if (isReadonlyArray2(headers2)) {
-    iter = headers2;
+  if (headers instanceof Headers) {
+    iter = headers.entries();
+  } else if (isReadonlyArray2(headers)) {
+    iter = headers;
   } else {
     shouldClear = true;
-    iter = Object.entries(headers2 ?? {});
+    iter = Object.entries(headers ?? {});
   }
   for (let row of iter) {
     const name = row[0];
@@ -26857,9 +26857,9 @@ var init_headers3 = __esm({
     buildHeaders2 = (newHeaders) => {
       const targetHeaders = new Headers();
       const nullHeaders = /* @__PURE__ */ new Set();
-      for (const headers2 of newHeaders) {
+      for (const headers of newHeaders) {
         const seenHeaders = /* @__PURE__ */ new Set();
-        for (const [name, value] of iterateHeaders2(headers2)) {
+        for (const [name, value] of iterateHeaders2(headers)) {
           const lowerName = name.toLowerCase();
           if (!seenHeaders.has(lowerName)) {
             targetHeaders.delete(name);
@@ -31793,8 +31793,8 @@ var init_client2 = __esm({
       defaultIdempotencyKey() {
         return `stainless-node-retry-${uuid42()}`;
       }
-      makeStatusError(status, error51, message, headers2) {
-        return APIError2.generate(status, error51, message, headers2);
+      makeStatusError(status, error51, message, headers) {
+        return APIError2.generate(status, error51, message, headers);
       }
       buildURL(path6, query, defaultBaseURL) {
         const baseURL = !__classPrivateFieldGet2(this, _BaseAnthropic_instances, "m", _BaseAnthropic_baseURLOverridden).call(this) && defaultBaseURL || this.baseURL;
@@ -32065,7 +32065,7 @@ var init_client2 = __esm({
             options.idempotencyKey = this.defaultIdempotencyKey();
           idempotencyHeaders[this.idempotencyHeader] = options.idempotencyKey;
         }
-        const headers2 = buildHeaders2([
+        const headers = buildHeaders2([
           idempotencyHeaders,
           {
             Accept: "application/json",
@@ -32081,8 +32081,8 @@ var init_client2 = __esm({
           bodyHeaders,
           options.headers
         ]);
-        this.validateHeaders(headers2);
-        return headers2.values;
+        this.validateHeaders(headers);
+        return headers.values;
       }
       _makeAbort(controller) {
         return () => controller.abort();
@@ -32091,11 +32091,11 @@ var init_client2 = __esm({
         if (!body) {
           return { bodyHeaders: void 0, body: void 0 };
         }
-        const headers2 = buildHeaders2([rawHeaders]);
+        const headers = buildHeaders2([rawHeaders]);
         if (
           // Pass raw type verbatim
           ArrayBuffer.isView(body) || body instanceof ArrayBuffer || body instanceof DataView || typeof body === "string" && // Preserve legacy string encoding behavior for now
-          headers2.values.has("content-type") || // `Blob` is superset of `File`
+          headers.values.has("content-type") || // `Blob` is superset of `File`
           globalThis.Blob && body instanceof globalThis.Blob || // `FormData` -> `multipart/form-data`
           body instanceof FormData || // `URLSearchParams` -> `application/x-www-form-urlencoded`
           body instanceof URLSearchParams || // Send chunked stream (each chunk has own `length`)
@@ -32104,13 +32104,13 @@ var init_client2 = __esm({
           return { bodyHeaders: void 0, body };
         } else if (typeof body === "object" && (Symbol.asyncIterator in body || Symbol.iterator in body && "next" in body && typeof body.next === "function")) {
           return { bodyHeaders: void 0, body: ReadableStreamFrom2(body) };
-        } else if (typeof body === "object" && headers2.values.get("content-type") === "application/x-www-form-urlencoded") {
+        } else if (typeof body === "object" && headers.values.get("content-type") === "application/x-www-form-urlencoded") {
           return {
             bodyHeaders: { "content-type": "application/x-www-form-urlencoded" },
             body: this.stringifyQuery(body)
           };
         } else {
-          return __classPrivateFieldGet2(this, _BaseAnthropic_encoder, "f").call(this, { body, headers: headers2 });
+          return __classPrivateFieldGet2(this, _BaseAnthropic_encoder, "f").call(this, { body, headers });
         }
       }
     };
@@ -32542,14 +32542,14 @@ function hasCopilotVisionInput(messages) {
   });
 }
 function buildCopilotDynamicHeaders(params) {
-  const headers2 = {
+  const headers = {
     "X-Initiator": inferCopilotInitiator(params.messages),
     "Openai-Intent": "conversation-edits"
   };
   if (params.hasImages) {
-    headers2["Copilot-Vision-Request"] = "true";
+    headers["Copilot-Vision-Request"] = "true";
   }
-  return headers2;
+  return headers;
 }
 var init_github_copilot_headers = __esm({
   "node_modules/.pnpm/@earendil-works+pi-ai@0.79.6_@modelcontextprotocol+sdk@1.29.0_zod@4.4.3__ws@8.21.0_zod@4.4.3/node_modules/@earendil-works/pi-ai/dist/providers/github-copilot-headers.js"() {
@@ -32831,9 +32831,9 @@ function getAnthropicCompat(model) {
 }
 function mergeHeaders(...headerSources) {
   const merged = {};
-  for (const headers2 of headerSources) {
-    if (headers2) {
-      Object.assign(merged, headers2);
+  for (const headers of headerSources) {
+    if (headers) {
+      Object.assign(merged, headers);
     }
   }
   return merged;
@@ -34198,16 +34198,16 @@ function resolveAzureConfig(model, options) {
   };
 }
 function createClient3(model, apiKey, options) {
-  const headers2 = { ...model.headers };
+  const headers = { ...model.headers };
   if (options?.headers) {
-    Object.assign(headers2, options.headers);
+    Object.assign(headers, options.headers);
   }
   const { baseUrl, apiVersion } = resolveAzureConfig(model, options);
   return new AzureOpenAI({
     apiKey,
     apiVersion,
     dangerouslyAllowBrowser: true,
-    defaultHeaders: headers2,
+    defaultHeaders: headers,
     baseURL: baseUrl
   });
 }
@@ -35032,12 +35032,12 @@ var require_common = __commonJS({
     }
     function defaultErrorRedactor(data) {
       const REDACT = "<<REDACTED> - See `errorRedactor` option in `gaxios` for configuration>.";
-      function redactHeaders(headers2) {
-        if (!headers2)
+      function redactHeaders(headers) {
+        if (!headers)
           return;
-        headers2.forEach((_16, key) => {
+        headers.forEach((_16, key) => {
           if (/^authentication$/i.test(key) || /^authorization$/i.test(key) || /secret/i.test(key))
-            headers2.set(key, REDACT);
+            headers.set(key, REDACT);
         });
       }
       function redactString(obj, key) {
@@ -36143,7 +36143,7 @@ var require_parse_proxy_response = __commonJS({
           const firstLineParts = firstLine.split(" ");
           const statusCode = +firstLineParts[1];
           const statusText = firstLineParts.slice(2).join(" ");
-          const headers2 = {};
+          const headers = {};
           for (const header of headerParts) {
             if (!header)
               continue;
@@ -36154,22 +36154,22 @@ var require_parse_proxy_response = __commonJS({
             }
             const key = header.slice(0, firstColon).toLowerCase();
             const value = header.slice(firstColon + 1).trimStart();
-            const current = headers2[key];
+            const current = headers[key];
             if (typeof current === "string") {
-              headers2[key] = [current, value];
+              headers[key] = [current, value];
             } else if (Array.isArray(current)) {
               current.push(value);
             } else {
-              headers2[key] = value;
+              headers[key] = value;
             }
           }
-          debug("got proxy server response: %o %o", firstLine, headers2);
+          debug("got proxy server response: %o %o", firstLine, headers);
           cleanup();
           resolve2({
             connect: {
               statusCode,
               statusText,
-              headers: headers2
+              headers
             },
             buffered
           });
@@ -36270,20 +36270,20 @@ var require_dist3 = __commonJS({
           debug("Creating `net.Socket`: %o", this.connectOpts);
           socket = net.connect(this.connectOpts);
         }
-        const headers2 = typeof this.proxyHeaders === "function" ? this.proxyHeaders() : { ...this.proxyHeaders };
+        const headers = typeof this.proxyHeaders === "function" ? this.proxyHeaders() : { ...this.proxyHeaders };
         const host = net.isIPv6(opts.host) ? `[${opts.host}]` : opts.host;
         let payload = `CONNECT ${host}:${opts.port} HTTP/1.1\r
 `;
         if (proxy.username || proxy.password) {
           const auth2 = `${decodeURIComponent(proxy.username)}:${decodeURIComponent(proxy.password)}`;
-          headers2["Proxy-Authorization"] = `Basic ${Buffer.from(auth2).toString("base64")}`;
+          headers["Proxy-Authorization"] = `Basic ${Buffer.from(auth2).toString("base64")}`;
         }
-        headers2.Host = `${host}:${opts.port}`;
-        if (!headers2["Proxy-Connection"]) {
-          headers2["Proxy-Connection"] = this.keepAlive ? "Keep-Alive" : "close";
+        headers.Host = `${host}:${opts.port}`;
+        if (!headers["Proxy-Connection"]) {
+          headers["Proxy-Connection"] = this.keepAlive ? "Keep-Alive" : "close";
         }
-        for (const name of Object.keys(headers2)) {
-          payload += `${name}: ${headers2[name]}\r
+        for (const name of Object.keys(headers)) {
+          payload += `${name}: ${headers[name]}\r
 `;
         }
         const proxyResponsePromise = (0, parse_proxy_response_1.parseProxyResponse)(socket);
@@ -41555,7 +41555,7 @@ var init_multipart_parser = __esm({
 
 // node_modules/.pnpm/node-fetch@3.3.2/node_modules/node-fetch/src/body.js
 import Stream3, { PassThrough } from "node:stream";
-import { types, deprecate, promisify as promisify2 } from "node:util";
+import { types, deprecate, promisify } from "node:util";
 import { Buffer as Buffer2 } from "node:buffer";
 async function consumeBody(data) {
   if (data[INTERNALS].disturbed) {
@@ -41609,7 +41609,7 @@ var init_body = __esm({
     init_fetch_error();
     init_base();
     init_is();
-    pipeline = promisify2(Stream3.pipeline);
+    pipeline = promisify(Stream3.pipeline);
     INTERNALS = Symbol("Body internals");
     Body = class {
       constructor(body, {
@@ -41814,9 +41814,9 @@ var init_body = __esm({
 // node_modules/.pnpm/node-fetch@3.3.2/node_modules/node-fetch/src/headers.js
 import { types as types2 } from "node:util";
 import http from "node:http";
-function fromRawHeaders(headers2 = []) {
+function fromRawHeaders(headers = []) {
   return new Headers2(
-    headers2.reduce((result, value, index2, array3) => {
+    headers.reduce((result, value, index2, array3) => {
       if (index2 % 2 === 0) {
         result.push(array3.slice(index2, index2 + 2));
       }
@@ -42025,11 +42025,11 @@ var init_response = __esm({
       constructor(body = null, options = {}) {
         super(body, options);
         const status = options.status != null ? options.status : 200;
-        const headers2 = new Headers2(options.headers);
-        if (body !== null && !headers2.has("Content-Type")) {
+        const headers = new Headers2(options.headers);
+        if (body !== null && !headers.has("Content-Type")) {
           const contentType2 = extractContentType(body, this);
           if (contentType2) {
-            headers2.append("Content-Type", contentType2);
+            headers.append("Content-Type", contentType2);
           }
         }
         this[INTERNALS2] = {
@@ -42037,7 +42037,7 @@ var init_response = __esm({
           url: options.url,
           status,
           statusText: options.statusText || "",
-          headers: headers2,
+          headers,
           counter: options.counter,
           highWaterMark: options.highWaterMark
         };
@@ -42113,13 +42113,13 @@ var init_response = __esm({
         if (body === void 0) {
           throw new TypeError("data is not JSON serializable");
         }
-        const headers2 = new Headers2(init && init.headers);
-        if (!headers2.has("content-type")) {
-          headers2.set("content-type", "application/json");
+        const headers = new Headers2(init && init.headers);
+        if (!headers.has("content-type")) {
+          headers.set("content-type", "application/json");
         }
         return new _Response(body, {
           ...init,
-          headers: headers2
+          headers
         });
       }
       get [Symbol.toStringTag]() {
@@ -42271,8 +42271,8 @@ function determineRequestsReferrer(request, { referrerURLCallback, referrerOrigi
       throw new TypeError(`Invalid referrerPolicy: ${policy}`);
   }
 }
-function parseReferrerPolicyFromHeader(headers2) {
-  const policyTokens = (headers2.get("referrer-policy") || "").split(/[,\s]+/);
+function parseReferrerPolicyFromHeader(headers) {
+  const policyTokens = (headers.get("referrer-policy") || "").split(/[,\s]+/);
   let policy = "";
   for (const token of policyTokens) {
     if (token && ReferrerPolicy.has(token)) {
@@ -42346,11 +42346,11 @@ var init_request = __esm({
         super(inputBody, {
           size: init.size || input.size || 0
         });
-        const headers2 = new Headers2(init.headers || input.headers || {});
-        if (inputBody !== null && !headers2.has("Content-Type")) {
+        const headers = new Headers2(init.headers || input.headers || {});
+        if (inputBody !== null && !headers.has("Content-Type")) {
           const contentType2 = extractContentType(inputBody, this);
           if (contentType2) {
-            headers2.set("Content-Type", contentType2);
+            headers.set("Content-Type", contentType2);
           }
         }
         let signal = isRequest(input) ? input.signal : null;
@@ -42372,7 +42372,7 @@ var init_request = __esm({
         this[INTERNALS3] = {
           method,
           redirect: init.redirect || input.redirect || "follow",
-          headers: headers2,
+          headers,
           parsedURL,
           signal,
           referrer
@@ -42447,9 +42447,9 @@ var init_request = __esm({
     });
     getNodeRequestOptions = (request) => {
       const { parsedURL } = request[INTERNALS3];
-      const headers2 = new Headers2(request[INTERNALS3].headers);
-      if (!headers2.has("Accept")) {
-        headers2.set("Accept", "*/*");
+      const headers = new Headers2(request[INTERNALS3].headers);
+      if (!headers.has("Accept")) {
+        headers.set("Accept", "*/*");
       }
       let contentLengthValue = null;
       if (request.body === null && /^(post|put)$/i.test(request.method)) {
@@ -42462,7 +42462,7 @@ var init_request = __esm({
         }
       }
       if (contentLengthValue) {
-        headers2.set("Content-Length", contentLengthValue);
+        headers.set("Content-Length", contentLengthValue);
       }
       if (request.referrerPolicy === "") {
         request.referrerPolicy = DEFAULT_REFERRER_POLICY;
@@ -42473,13 +42473,13 @@ var init_request = __esm({
         request[INTERNALS3].referrer = "no-referrer";
       }
       if (request[INTERNALS3].referrer instanceof URL) {
-        headers2.set("Referer", request.referrer);
+        headers.set("Referer", request.referrer);
       }
-      if (!headers2.has("User-Agent")) {
-        headers2.set("User-Agent", "node-fetch");
+      if (!headers.has("User-Agent")) {
+        headers.set("User-Agent", "node-fetch");
       }
-      if (request.compress && !headers2.has("Accept-Encoding")) {
-        headers2.set("Accept-Encoding", "gzip, deflate, br");
+      if (request.compress && !headers.has("Accept-Encoding")) {
+        headers.set("Accept-Encoding", "gzip, deflate, br");
       }
       let { agent } = request;
       if (typeof agent === "function") {
@@ -42491,7 +42491,7 @@ var init_request = __esm({
         path: parsedURL.pathname + search,
         // The following options are not expressed in the URL
         method: request.method,
-        headers: headers2[Symbol.for("nodejs.util.inspect.custom")](),
+        headers: headers[Symbol.for("nodejs.util.inspect.custom")](),
         insecureHTTPParser: request.insecureHTTPParser,
         agent
       };
@@ -42611,9 +42611,9 @@ async function fetch2(url2, options_) {
     }
     request_.on("response", (response_) => {
       request_.setTimeout(0);
-      const headers2 = fromRawHeaders(response_.rawHeaders);
+      const headers = fromRawHeaders(response_.rawHeaders);
       if (isRedirect(response_.statusCode)) {
-        const location = headers2.get("Location");
+        const location = headers.get("Location");
         let locationURL = null;
         try {
           locationURL = location === null ? null : new URL(location, request.url);
@@ -42668,7 +42668,7 @@ async function fetch2(url2, options_) {
               requestOptions.body = void 0;
               requestOptions.headers.delete("content-length");
             }
-            const responseReferrerPolicy = parseReferrerPolicyFromHeader(headers2);
+            const responseReferrerPolicy = parseReferrerPolicyFromHeader(headers);
             if (responseReferrerPolicy) {
               requestOptions.referrerPolicy = responseReferrerPolicy;
             }
@@ -42697,12 +42697,12 @@ async function fetch2(url2, options_) {
         url: request.url,
         status: response_.statusCode,
         statusText: response_.statusMessage,
-        headers: headers2,
+        headers,
         size: request.size,
         counter: request.counter,
         highWaterMark: request.highWaterMark
       };
-      const codings = headers2.get("Content-Encoding");
+      const codings = headers.get("Content-Encoding");
       if (!request.compress || request.method === "HEAD" || codings === null || response_.statusCode === 204 || response_.statusCode === 304) {
         response = new Response2(body, responseOptions);
         resolve2(response);
@@ -42775,8 +42775,8 @@ function fixResponseChunkedTransferBadEnding(request, errorCallback) {
   let properLastChunkReceived = false;
   let previousChunk;
   request.on("response", (response) => {
-    const { headers: headers2 } = response;
-    isChunkedTransfer = headers2["transfer-encoding"] === "chunked" && !headers2["content-length"];
+    const { headers } = response;
+    isChunkedTransfer = headers["transfer-encoding"] === "chunked" && !headers["content-length"];
   });
   request.on("socket", (socket) => {
     const onSocketClose = () => {
@@ -42881,7 +42881,7 @@ var require_gaxios = __commonJS({
         const input = args[0];
         const init = args[1];
         let url2 = void 0;
-        const headers2 = new Headers();
+        const headers = new Headers();
         if (typeof input === "string") {
           url2 = new URL(input);
         } else if (input instanceof URL) {
@@ -42890,15 +42890,15 @@ var require_gaxios = __commonJS({
           url2 = new URL(input.url);
         }
         if (input && typeof input === "object" && "headers" in input) {
-          _a9.mergeHeaders(headers2, input.headers);
+          _a9.mergeHeaders(headers, input.headers);
         }
         if (init) {
-          _a9.mergeHeaders(headers2, new Headers(init.headers));
+          _a9.mergeHeaders(headers, new Headers(init.headers));
         }
         if (typeof input === "object" && !(input instanceof URL)) {
-          return this.request({ ...init, ...input, headers: headers2, url: url2 });
+          return this.request({ ...init, ...input, headers, url: url2 });
         } else {
-          return this.request({ ...init, headers: headers2, url: url2 });
+          return this.request({ ...init, headers, url: url2 });
         }
       }
       /**
@@ -43280,8 +43280,8 @@ Content-Type: ${partContentType}\r
        */
       static mergeHeaders(base, ...append) {
         base = base instanceof Headers ? base : new Headers(base);
-        for (const headers2 of append) {
-          const add = headers2 instanceof Headers ? headers2 : new Headers(headers2);
+        for (const headers of append) {
+          const add = headers instanceof Headers ? headers : new Headers(headers);
           add.forEach((value, key) => {
             key === "set-cookie" ? base.append(key, value) : base.set(key, value);
           });
@@ -45619,12 +45619,12 @@ var require_src4 = __commonJS({
       });
     }
     async function metadataAccessor(type, options = {}, noResponseRetries = 3, fastFail = false) {
-      const headers2 = new Headers(exports.HEADERS);
+      const headers = new Headers(exports.HEADERS);
       let metadataKey = "";
       let params = {};
       if (typeof type === "object") {
         const metadataAccessor2 = type;
-        new Headers(metadataAccessor2.headers).forEach((value, key) => headers2.set(key, value));
+        new Headers(metadataAccessor2.headers).forEach((value, key) => headers.set(key, value));
         metadataKey = metadataAccessor2.metadataKey;
         params = metadataAccessor2.params || params;
         noResponseRetries = metadataAccessor2.noResponseRetries || noResponseRetries;
@@ -45639,13 +45639,13 @@ var require_src4 = __commonJS({
         if (options.property) {
           metadataKey += `/${options.property}`;
         }
-        new Headers(options.headers).forEach((value, key) => headers2.set(key, value));
+        new Headers(options.headers).forEach((value, key) => headers.set(key, value));
         params = options.params || params;
       }
       const requestMethod = fastFail ? fastFailMetadataRequest : gaxios_1.request;
       const req = {
         url: `${getBaseUrl2()}/${metadataKey}`,
-        headers: headers2,
+        headers,
         retryConfig: { noResponseRetries },
         params,
         responseType: "text",
@@ -46624,7 +46624,7 @@ var require_authclient = __commonJS({
         const input = args[0];
         const init = args[1];
         let url2 = void 0;
-        const headers2 = new Headers();
+        const headers = new Headers();
         if (typeof input === "string") {
           url2 = new URL(input);
         } else if (input instanceof URL) {
@@ -46633,15 +46633,15 @@ var require_authclient = __commonJS({
           url2 = new URL(input.url);
         }
         if (input && typeof input === "object" && "headers" in input) {
-          gaxios_1.Gaxios.mergeHeaders(headers2, input.headers);
+          gaxios_1.Gaxios.mergeHeaders(headers, input.headers);
         }
         if (init) {
-          gaxios_1.Gaxios.mergeHeaders(headers2, new Headers(init.headers));
+          gaxios_1.Gaxios.mergeHeaders(headers, new Headers(init.headers));
         }
         if (typeof input === "object" && !(input instanceof URL)) {
-          return this.request({ ...init, ...input, headers: headers2, url: url2 });
+          return this.request({ ...init, ...input, headers, url: url2 });
         } else {
-          return this.request({ ...init, headers: headers2, url: url2 });
+          return this.request({ ...init, headers, url: url2 });
         }
       }
       /**
@@ -46658,12 +46658,12 @@ var require_authclient = __commonJS({
        *
        * @param headers object to append additional headers to.
        */
-      addSharedMetadataHeaders(headers2) {
-        if (!headers2.has("x-goog-user-project") && // don't override a value the user sets.
+      addSharedMetadataHeaders(headers) {
+        if (!headers.has("x-goog-user-project") && // don't override a value the user sets.
         this.quotaProjectId) {
-          headers2.set("x-goog-user-project", this.quotaProjectId);
+          headers.set("x-goog-user-project", this.quotaProjectId);
         }
-        return headers2;
+        return headers;
       }
       /**
        * Adds the `x-goog-user-project` and `authorization` headers to the target Headers
@@ -46972,7 +46972,7 @@ var require_oauth2client = __commonJS({
       }
       async getTokenAsync(options) {
         const url2 = this.endpoints.oauth2TokenUrl.toString();
-        const headers2 = new Headers();
+        const headers = new Headers();
         const values = {
           client_id: options.client_id || this._clientId,
           code_verifier: options.codeVerifier,
@@ -46982,7 +46982,7 @@ var require_oauth2client = __commonJS({
         };
         if (this.clientAuthentication === ClientAuthentication.ClientSecretBasic) {
           const basic = Buffer.from(`${this._clientId}:${this._clientSecret}`);
-          headers2.set("authorization", `Basic ${basic.toString("base64")}`);
+          headers.set("authorization", `Basic ${basic.toString("base64")}`);
         }
         if (this.clientAuthentication === ClientAuthentication.ClientSecretPost) {
           values.client_secret = this._clientSecret;
@@ -46992,7 +46992,7 @@ var require_oauth2client = __commonJS({
           method: "POST",
           url: url2,
           data: new URLSearchParams((0, util_1.removeUndefinedValuesInObject)(values)),
-          headers: headers2
+          headers
         };
         authclient_1.AuthClient.setMethodName(opts, "getTokenAsync");
         const res = await this.transporter.request(opts);
@@ -47114,8 +47114,8 @@ var require_oauth2client = __commonJS({
        * { authorization: 'Bearer <access_token_value>' }
        */
       async getRequestHeaders(url2) {
-        const headers2 = (await this.getRequestMetadataAsync(url2)).headers;
-        return headers2;
+        const headers = (await this.getRequestMetadataAsync(url2)).headers;
+        return headers;
       }
       async getRequestMetadataAsync(url2) {
         url2;
@@ -47125,19 +47125,19 @@ var require_oauth2client = __commonJS({
         }
         if (thisCreds.access_token && !this.isTokenExpiring()) {
           thisCreds.token_type = thisCreds.token_type || "Bearer";
-          const headers3 = new Headers({
+          const headers2 = new Headers({
             authorization: thisCreds.token_type + " " + thisCreds.access_token
           });
-          return { headers: this.addSharedMetadataHeaders(headers3) };
+          return { headers: this.addSharedMetadataHeaders(headers2) };
         }
         if (this.refreshHandler) {
           const refreshedAccessToken = await this.processAndValidateRefreshHandler();
           if (refreshedAccessToken?.access_token) {
             this.setCredentials(refreshedAccessToken);
-            const headers3 = new Headers({
+            const headers2 = new Headers({
               authorization: "Bearer " + this.credentials.access_token
             });
-            return { headers: this.addSharedMetadataHeaders(headers3) };
+            return { headers: this.addSharedMetadataHeaders(headers2) };
           }
         }
         if (this.apiKey) {
@@ -47159,10 +47159,10 @@ var require_oauth2client = __commonJS({
         credentials.token_type = credentials.token_type || "Bearer";
         tokens.refresh_token = credentials.refresh_token;
         this.credentials = tokens;
-        const headers2 = new Headers({
+        const headers = new Headers({
           authorization: credentials.token_type + " " + tokens.access_token
         });
-        return { headers: this.addSharedMetadataHeaders(headers2), res: r13.res };
+        return { headers: this.addSharedMetadataHeaders(headers), res: r13.res };
       }
       /**
        * Generates an URL to revoke the given token.
@@ -47635,10 +47635,10 @@ var require_idtokenclient = __commonJS({
             expiry_date: this.getIdTokenExpiryDate(idToken)
           };
         }
-        const headers2 = new Headers({
+        const headers = new Headers({
           authorization: "Bearer " + this.credentials.id_token
         });
-        return { headers: headers2 };
+        return { headers };
       }
       getIdTokenExpiryDate(idToken) {
         const payloadB64 = idToken.split(".")[1];
@@ -48788,12 +48788,12 @@ var require_jwtaccess = __commonJS({
         const header = this.keyId ? { ...DEFAULT_HEADER, kid: this.keyId } : DEFAULT_HEADER;
         const payload = Object.assign(defaultClaims, additionalClaims);
         const signedJWT = jws.sign({ header, payload, secret: this.key });
-        const headers2 = new Headers({ authorization: `Bearer ${signedJWT}` });
+        const headers = new Headers({ authorization: `Bearer ${signedJWT}` });
         this.cache.set(key, {
           expiration: exp * 1e3,
-          headers: headers2
+          headers
         });
-        return headers2;
+        return headers;
       }
       /**
        * Returns an expiration time for the JWT token.
@@ -48936,7 +48936,7 @@ var require_jwtclient = __commonJS({
               scopes = this.defaultScopes;
             }
             const useScopes = this.useJWTAccessWithScope || this.universeDomain !== authclient_1.DEFAULT_UNIVERSE;
-            const headers2 = await this.access.getRequestHeaders(
+            const headers = await this.access.getRequestHeaders(
               url2 ?? void 0,
               this.additionalClaims,
               // Scopes take precedent over audience for signing,
@@ -48944,7 +48944,7 @@ var require_jwtclient = __commonJS({
               // if we are in a non-default universe
               useScopes ? scopes : void 0
             );
-            return { headers: this.addSharedMetadataHeaders(headers2) };
+            return { headers: this.addSharedMetadataHeaders(headers) };
           }
         } else if (this.hasAnyScopes() || this.apiKey) {
           return super.getRequestMetadataAsync(url2);
@@ -49511,8 +49511,8 @@ var require_oauth2common = __commonJS({
           if (!METHODS_SUPPORTING_REQUEST_BODY.includes(method)) {
             throw new Error(`${method} HTTP method does not support ${this.#clientAuthentication.confidentialClientType} client authentication`);
           }
-          const headers2 = new Headers(opts.headers);
-          const contentType2 = headers2.get("content-type");
+          const headers = new Headers(opts.headers);
+          const contentType2 = headers.get("content-type");
           if (contentType2?.startsWith("application/x-www-form-urlencoded") || opts.data instanceof URLSearchParams) {
             const data = new URLSearchParams(opts.data ?? "");
             data.append("client_id", this.#clientAuthentication.clientId);
@@ -49623,7 +49623,7 @@ var require_stscredentials = __commonJS({
        * @return A promise that resolves with the token exchange response containing
        *   the requested token and its expiration time.
        */
-      async exchangeToken(stsCredentialsOptions, headers2, options) {
+      async exchangeToken(stsCredentialsOptions, headers, options) {
         const values = {
           grant_type: stsCredentialsOptions.grantType,
           resource: stsCredentialsOptions.resource,
@@ -49641,7 +49641,7 @@ var require_stscredentials = __commonJS({
           ..._StsCredentials.RETRY_CONFIG,
           url: this.#tokenExchangeEndpoint.toString(),
           method: "POST",
-          headers: headers2,
+          headers,
           data: new URLSearchParams((0, util_1.removeUndefinedValuesInObject)(values)),
           responseType: "json"
         };
@@ -49823,10 +49823,10 @@ var require_baseexternalclient = __commonJS({
        */
       async getRequestHeaders() {
         const accessTokenResponse = await this.getAccessToken();
-        const headers2 = new Headers({
+        const headers = new Headers({
           authorization: `Bearer ${accessTokenResponse.token}`
         });
-        return this.addSharedMetadataHeaders(headers2);
+        return this.addSharedMetadataHeaders(headers);
       }
       request(opts, callback) {
         if (callback) {
@@ -49857,10 +49857,10 @@ var require_baseexternalclient = __commonJS({
         if (this.projectId) {
           return this.projectId;
         } else if (projectNumber) {
-          const headers2 = await this.getRequestHeaders();
+          const headers = await this.getRequestHeaders();
           const opts = {
             ..._BaseExternalAccountClient.RETRY_CONFIG,
-            headers: headers2,
+            headers,
             url: `${this.cloudResourceManagerURL.toString()}${projectNumber}`,
             responseType: "json"
           };
@@ -50407,7 +50407,7 @@ var require_identitypoolclient = __commonJS({
           const file2 = credentialSourceOpts.get("file");
           const url2 = credentialSourceOpts.get("url");
           const certificate = credentialSourceOpts.get("certificate");
-          const headers2 = credentialSourceOpts.get("headers");
+          const headers = credentialSourceOpts.get("headers");
           if (file2 && url2 || url2 && certificate || file2 && certificate) {
             throw new Error('No valid Identity Pool "credential_source" provided, must be either file, url, or certificate.');
           } else if (file2) {
@@ -50423,7 +50423,7 @@ var require_identitypoolclient = __commonJS({
               url: url2,
               formatType,
               subjectTokenFieldName: formatSubjectTokenFieldName,
-              headers: headers2,
+              headers,
               additionalGaxiosOptions: _IdentityPoolClient.RETRY_CONFIG
             });
           } else if (certificate) {
@@ -50527,7 +50527,7 @@ var require_awsrequestsigner = __commonJS({
           requestPayload,
           additionalAmzHeaders
         });
-        const headers2 = gaxios_1.Gaxios.mergeHeaders(
+        const headers = gaxios_1.Gaxios.mergeHeaders(
           // Add x-amz-date if available.
           headerMap.amzDate ? { "x-amz-date": headerMap.amzDate } : {},
           {
@@ -50537,14 +50537,14 @@ var require_awsrequestsigner = __commonJS({
           additionalAmzHeaders || {}
         );
         if (awsSecurityCredentials.token) {
-          gaxios_1.Gaxios.mergeHeaders(headers2, {
+          gaxios_1.Gaxios.mergeHeaders(headers, {
             "x-amz-security-token": awsSecurityCredentials.token
           });
         }
         const awsSignedReq = {
           url: url2,
           method,
-          headers: headers2
+          headers
         };
         if (requestPayload !== void 0) {
           awsSignedReq.body = requestPayload;
@@ -50718,7 +50718,7 @@ var require_defaultawssecuritycredentialssupplier = __commonJS({
        * @return A promise that resolves with the assigned role to the current
        *   AWS VM. This is needed for calling the security-credentials endpoint.
        */
-      async #getAwsRoleName(headers2, transporter) {
+      async #getAwsRoleName(headers, transporter) {
         if (!this.securityCredentialsUrl) {
           throw new Error('Unable to determine AWS role name due to missing "options.credential_source.url"');
         }
@@ -50727,7 +50727,7 @@ var require_defaultawssecuritycredentialssupplier = __commonJS({
           url: this.securityCredentialsUrl,
           method: "GET",
           responseType: "text",
-          headers: headers2
+          headers
         };
         authclient_1.AuthClient.setMethodName(opts, "#getAwsRoleName");
         const response = await transporter.request(opts);
@@ -50742,11 +50742,11 @@ var require_defaultawssecuritycredentialssupplier = __commonJS({
        * @return A promise that resolves with the temporary AWS credentials
        *   needed for creating the GetCallerIdentity signed request.
        */
-      async #retrieveAwsSecurityCredentials(roleName, headers2, transporter) {
+      async #retrieveAwsSecurityCredentials(roleName, headers, transporter) {
         const opts = {
           ...this.additionalGaxiosOptions,
           url: `${this.securityCredentialsUrl}/${roleName}`,
-          headers: headers2,
+          headers,
           responseType: "json"
         };
         authclient_1.AuthClient.setMethodName(opts, "#retrieveAwsSecurityCredentials");
@@ -51368,12 +51368,12 @@ var require_externalAccountAuthorizedUserClient = __commonJS({
        * @return A promise that resolves with the token refresh response containing
        *   the requested access token and its expiration time.
        */
-      async refreshToken(refreshToken, headers2) {
+      async refreshToken(refreshToken, headers) {
         const opts = {
           ..._ExternalAccountAuthorizedUserHandler.RETRY_CONFIG,
           url: this.#tokenRefreshEndpoint,
           method: "POST",
-          headers: headers2,
+          headers,
           data: new URLSearchParams({
             grant_type: "refresh_token",
             refresh_token: refreshToken
@@ -51446,10 +51446,10 @@ var require_externalAccountAuthorizedUserClient = __commonJS({
       }
       async getRequestHeaders() {
         const accessTokenResponse = await this.getAccessToken();
-        const headers2 = new Headers({
+        const headers = new Headers({
           authorization: `Bearer ${accessTokenResponse.token}`
         });
-        return this.addSharedMetadataHeaders(headers2);
+        return this.addSharedMetadataHeaders(headers);
       }
       request(opts, callback) {
         if (callback) {
@@ -52513,8 +52513,8 @@ var require_googleauth = __commonJS({
       async authorizeRequest(opts = {}) {
         const url2 = opts.url;
         const client = await this.getClient();
-        const headers2 = await client.getRequestHeaders(url2);
-        opts.headers = gaxios_1.Gaxios.mergeHeaders(opts.headers, headers2);
+        const headers = await client.getRequestHeaders(url2);
+        opts.headers = gaxios_1.Gaxios.mergeHeaders(opts.headers, headers);
         return opts;
       }
       /**
@@ -52737,10 +52737,10 @@ var require_downscopedclient = __commonJS({
        */
       async getRequestHeaders() {
         const accessTokenResponse = await this.getAccessToken();
-        const headers2 = new Headers({
+        const headers = new Headers({
           authorization: `Bearer ${accessTokenResponse.token}`
         });
-        return this.addSharedMetadataHeaders(headers2);
+        return this.addSharedMetadataHeaders(headers);
       }
       request(opts, callback) {
         if (callback) {
@@ -55856,10 +55856,10 @@ var require_websocket = __commonJS({
           websocket._originalIpc = isIpcUrl;
           websocket._originalSecure = isSecure;
           websocket._originalHostOrSocketPath = isIpcUrl ? opts.socketPath : parsedUrl.host;
-          const headers2 = options && options.headers;
+          const headers = options && options.headers;
           options = { ...options, headers: {} };
-          if (headers2) {
-            for (const [key2, value] of Object.entries(headers2)) {
+          if (headers) {
+            for (const [key2, value] of Object.entries(headers)) {
               options.headers[key2.toLowerCase()] = value;
             }
           }
@@ -56562,9 +56562,9 @@ var require_websocket_server = __commonJS({
             req
           };
           if (this.options.verifyClient.length === 2) {
-            this.options.verifyClient(info, (verified, code, message, headers2) => {
+            this.options.verifyClient(info, (verified, code, message, headers) => {
               if (!verified) {
-                return abortHandshake(socket, code || 401, message, headers2);
+                return abortHandshake(socket, code || 401, message, headers);
               }
               this.completeUpgrade(
                 extensions,
@@ -56604,7 +56604,7 @@ var require_websocket_server = __commonJS({
         }
         if (this._state > RUNNING) return abortHandshake(socket, 503);
         const digest = createHash("sha1").update(key + GUID).digest("base64");
-        const headers2 = [
+        const headers = [
           "HTTP/1.1 101 Switching Protocols",
           "Upgrade: websocket",
           "Connection: Upgrade",
@@ -56614,7 +56614,7 @@ var require_websocket_server = __commonJS({
         if (protocols.size) {
           const protocol = this.options.handleProtocols ? this.options.handleProtocols(protocols, req) : protocols.values().next().value;
           if (protocol) {
-            headers2.push(`Sec-WebSocket-Protocol: ${protocol}`);
+            headers.push(`Sec-WebSocket-Protocol: ${protocol}`);
             ws4._protocol = protocol;
           }
         }
@@ -56623,11 +56623,11 @@ var require_websocket_server = __commonJS({
           const value = extension2.format({
             [PerMessageDeflate2.extensionName]: [params]
           });
-          headers2.push(`Sec-WebSocket-Extensions: ${value}`);
+          headers.push(`Sec-WebSocket-Extensions: ${value}`);
           ws4._extensions = extensions;
         }
-        this.emit("headers", headers2, req);
-        socket.write(headers2.concat("\r\n").join("\r\n"));
+        this.emit("headers", headers, req);
+        socket.write(headers.concat("\r\n").join("\r\n"));
         socket.removeListener("error", socketOnError);
         ws4.setSocket(socket, head, {
           allowSynchronousEvents: this.options.allowSynchronousEvents,
@@ -56664,27 +56664,27 @@ var require_websocket_server = __commonJS({
     function socketOnError() {
       this.destroy();
     }
-    function abortHandshake(socket, code, message, headers2) {
+    function abortHandshake(socket, code, message, headers) {
       message = message || http3.STATUS_CODES[code];
-      headers2 = {
+      headers = {
         Connection: "close",
         "Content-Type": "text/html",
         "Content-Length": Buffer.byteLength(message),
-        ...headers2
+        ...headers
       };
       socket.once("finish", socket.destroy);
       socket.end(
         `HTTP/1.1 ${code} ${http3.STATUS_CODES[code]}\r
-` + Object.keys(headers2).map((h20) => `${h20}: ${headers2[h20]}`).join("\r\n") + "\r\n\r\n" + message
+` + Object.keys(headers).map((h20) => `${h20}: ${headers[h20]}`).join("\r\n") + "\r\n\r\n" + message
       );
     }
-    function abortHandshakeOrEmitwsClientError(server, req, socket, code, message, headers2) {
+    function abortHandshakeOrEmitwsClientError(server, req, socket, code, message, headers) {
       if (server.listenerCount("wsClientError")) {
         const err2 = new Error(message);
         Error.captureStackTrace(err2, abortHandshakeOrEmitwsClientError);
         server.emit("wsClientError", err2, socket, req);
       } else {
-        abortHandshake(socket, code, message, headers2);
+        abortHandshake(socket, code, message, headers);
       }
     }
   }
@@ -65281,10 +65281,10 @@ function hasMcpToolUsage(tools) {
   }
   return hasMcpToolUsageFromMcpToTool;
 }
-function setMcpUsageHeader(headers2) {
+function setMcpUsageHeader(headers) {
   var _a9;
-  const existingHeader = (_a9 = headers2[GOOGLE_API_CLIENT_HEADER]) !== null && _a9 !== void 0 ? _a9 : "";
-  headers2[GOOGLE_API_CLIENT_HEADER] = (existingHeader + ` ${MCP_LABEL}`).trimStart();
+  const existingHeader = (_a9 = headers[GOOGLE_API_CLIENT_HEADER]) !== null && _a9 !== void 0 ? _a9 : "";
+  headers[GOOGLE_API_CLIENT_HEADER] = (existingHeader + ` ${MCP_LABEL}`).trimStart();
 }
 function isMcpCallableTool(object3) {
   return object3 !== null && typeof object3 === "object" && object3 instanceof McpCallableTool;
@@ -65317,19 +65317,19 @@ async function handleWebSocketMessage$1(apiClient, onmessage, event) {
   Object.assign(serverMessage, data);
   onmessage(serverMessage);
 }
-function headersToMap$1(headers2) {
+function headersToMap$1(headers) {
   const headerMap = {};
-  headers2.forEach((value, key) => {
+  headers.forEach((value, key) => {
     headerMap[key] = value;
   });
   return headerMap;
 }
 function mapToHeaders$1(map2) {
-  const headers2 = new Headers();
+  const headers = new Headers();
   for (const [key, value] of Object.entries(map2)) {
-    headers2.append(key, value);
+    headers.append(key, value);
   }
-  return headers2;
+  return headers;
 }
 async function handleWebSocketMessage(apiClient, onmessage, event) {
   const serverMessage = new LiveServerMessage();
@@ -65351,19 +65351,19 @@ async function handleWebSocketMessage(apiClient, onmessage, event) {
   }
   onmessage(serverMessage);
 }
-function headersToMap(headers2) {
+function headersToMap(headers) {
   const headerMap = {};
-  headers2.forEach((value, key) => {
+  headers.forEach((value, key) => {
     headerMap[key] = value;
   });
   return headerMap;
 }
 function mapToHeaders(map2) {
-  const headers2 = new Headers();
+  const headers = new Headers();
   for (const [key, value] of Object.entries(map2)) {
-    headers2.append(key, value);
+    headers.append(key, value);
   }
-  return headers2;
+  return headers;
 }
 function shouldDisableAfc(config2) {
   var _a9, _b, _c2;
@@ -66405,11 +66405,11 @@ async function defaultParseResponse3(client, props) {
   }));
   return body;
 }
-function* iterateHeaders3(headers2) {
-  if (!headers2)
+function* iterateHeaders3(headers) {
+  if (!headers)
     return;
-  if (brand_privateNullableHeaders3 in headers2) {
-    const { values, nulls } = headers2;
+  if (brand_privateNullableHeaders3 in headers) {
+    const { values, nulls } = headers;
     yield* values.entries();
     for (const name of nulls) {
       yield [name, null];
@@ -66418,13 +66418,13 @@ function* iterateHeaders3(headers2) {
   }
   let shouldClear = false;
   let iter;
-  if (headers2 instanceof Headers) {
-    iter = headers2.entries();
-  } else if (isReadonlyArray3(headers2)) {
-    iter = headers2;
+  if (headers instanceof Headers) {
+    iter = headers.entries();
+  } else if (isReadonlyArray3(headers)) {
+    iter = headers;
   } else {
     shouldClear = true;
-    iter = Object.entries(headers2 !== null && headers2 !== void 0 ? headers2 : {});
+    iter = Object.entries(headers !== null && headers !== void 0 ? headers : {});
   }
   for (let row of iter) {
     const name = row[0];
@@ -67927,11 +67927,11 @@ var init_node = __esm({
     })(LiveMusicPlaybackControl || (LiveMusicPlaybackControl = {}));
     HttpResponse = class {
       constructor(response) {
-        const headers2 = {};
+        const headers = {};
         for (const pair of response.headers.entries()) {
-          headers2[pair[0]] = pair[1];
+          headers[pair[0]] = pair[1];
         }
-        this.headers = headers2;
+        this.headers = headers;
         this.responseInternal = response;
       }
       json() {
@@ -69825,9 +69825,9 @@ var init_node = __esm({
         return this.customBaseUrl;
       }
       async getAuthHeaders() {
-        const headers2 = new Headers();
-        await this.clientOptions.auth.addAuthHeaders(headers2);
-        return headers2;
+        const headers = new Headers();
+        await this.clientOptions.auth.addAuthHeaders(headers);
+        return headers;
       }
       getApiVersion() {
         if (this.clientOptions.httpOptions && this.clientOptions.httpOptions.apiVersion !== void 0) {
@@ -70109,25 +70109,25 @@ var init_node = __esm({
         });
       }
       getDefaultHeaders() {
-        const headers2 = {};
+        const headers = {};
         const versionHeaderValue = LIBRARY_LABEL + " " + this.clientOptions.userAgentExtra;
-        headers2[USER_AGENT_HEADER] = versionHeaderValue;
-        headers2[GOOGLE_API_CLIENT_HEADER] = versionHeaderValue;
-        headers2[CONTENT_TYPE_HEADER] = "application/json";
-        return headers2;
+        headers[USER_AGENT_HEADER] = versionHeaderValue;
+        headers[GOOGLE_API_CLIENT_HEADER] = versionHeaderValue;
+        headers[CONTENT_TYPE_HEADER] = "application/json";
+        return headers;
       }
       async getHeadersInternal(httpOptions, url2) {
-        const headers2 = new Headers();
+        const headers = new Headers();
         if (httpOptions && httpOptions.headers) {
           for (const [key, value] of Object.entries(httpOptions.headers)) {
-            headers2.append(key, value);
+            headers.append(key, value);
           }
           if (httpOptions.timeout && httpOptions.timeout > 0) {
-            headers2.append(SERVER_TIMEOUT_HEADER, String(Math.ceil(httpOptions.timeout / 1e3)));
+            headers.append(SERVER_TIMEOUT_HEADER, String(Math.ceil(httpOptions.timeout / 1e3)));
           }
         }
-        await this.clientOptions.auth.addAuthHeaders(headers2, url2);
-        return headers2;
+        await this.clientOptions.auth.addAuthHeaders(headers, url2);
+        return headers;
       }
       getFileName(file2) {
         var _a9;
@@ -70380,7 +70380,7 @@ var init_node = __esm({
         console.warn("Live music generation is experimental and may change in future versions.");
         const websocketBaseUrl = this.apiClient.getWebsocketBaseUrl();
         const apiVersion = this.apiClient.getApiVersion();
-        const headers2 = mapToHeaders$1(this.apiClient.getDefaultHeaders());
+        const headers = mapToHeaders$1(this.apiClient.getDefaultHeaders());
         const apiKey = this.apiClient.getApiKey();
         const url2 = `${websocketBaseUrl}/ws/google.ai.generativelanguage.${apiVersion}.GenerativeService.BidiGenerateMusic?key=${apiKey}`;
         let onopenResolve = () => {
@@ -70403,7 +70403,7 @@ var init_node = __esm({
           onclose: (_b = callbacks === null || callbacks === void 0 ? void 0 : callbacks.onclose) !== null && _b !== void 0 ? _b : function(e7) {
           }
         };
-        const conn = this.webSocketFactory.create(url2, headersToMap$1(headers2), websocketCallbacks);
+        const conn = this.webSocketFactory.create(url2, headersToMap$1(headers), websocketCallbacks);
         conn.connect();
         await onopenPromise;
         const model = tModel(this.apiClient, params.model);
@@ -70564,7 +70564,7 @@ var init_node = __esm({
         if (params.config && params.config.tools && hasMcpToolUsage(params.config.tools)) {
           setMcpUsageHeader(clientHeaders);
         }
-        const headers2 = mapToHeaders(clientHeaders);
+        const headers = mapToHeaders(clientHeaders);
         if (this.apiClient.isVertexAI()) {
           const project = this.apiClient.getProject();
           const location = this.apiClient.getLocation();
@@ -70574,7 +70574,7 @@ var init_node = __esm({
             url2 = websocketBaseUrl;
           } else {
             url2 = `${websocketBaseUrl}/ws/google.cloud.aiplatform.${apiVersion}.LlmBidiService/BidiGenerateContent`;
-            await this.auth.addAuthHeaders(headers2, url2);
+            await this.auth.addAuthHeaders(headers, url2);
           }
         } else {
           const apiKey = this.apiClient.getApiKey();
@@ -70612,7 +70612,7 @@ var init_node = __esm({
           onclose: (_b = callbacks === null || callbacks === void 0 ? void 0 : callbacks.onclose) !== null && _b !== void 0 ? _b : function(e7) {
           }
         };
-        const conn = this.webSocketFactory.create(url2, headersToMap(headers2), websocketCallbacks);
+        const conn = this.webSocketFactory.create(url2, headersToMap(headers), websocketCallbacks);
         conn.connect();
         await onopenPromise;
         let transformedModel = tModel(this.apiClient, params.model);
@@ -71095,8 +71095,8 @@ var init_node = __esm({
         };
         newParams.config.tools = transformedTools;
         if (params.config && params.config.tools && hasMcpToolUsage(params.config.tools)) {
-          const headers2 = (_c2 = (_b = params.config.httpOptions) === null || _b === void 0 ? void 0 : _b.headers) !== null && _c2 !== void 0 ? _c2 : {};
-          let newHeaders = Object.assign({}, headers2);
+          const headers = (_c2 = (_b = params.config.httpOptions) === null || _b === void 0 ? void 0 : _b.headers) !== null && _c2 !== void 0 ? _c2 : {};
+          let newHeaders = Object.assign({}, headers);
           if (Object.keys(newHeaders).length === 0) {
             newHeaders = this.apiClient.getDefaultHeaders();
           }
@@ -72833,10 +72833,10 @@ var init_node = __esm({
     GeminiNextGenAPIClientError = class extends Error {
     };
     APIError3 = class _APIError extends GeminiNextGenAPIClientError {
-      constructor(status, error51, message, headers2) {
+      constructor(status, error51, message, headers) {
         super(`${_APIError.makeMessage(status, error51, message)}`);
         this.status = status;
-        this.headers = headers2;
+        this.headers = headers;
         this.error = error51;
       }
       static makeMessage(status, error51, message) {
@@ -72852,36 +72852,36 @@ var init_node = __esm({
         }
         return "(no status code or body)";
       }
-      static generate(status, errorResponse, message, headers2) {
-        if (!status || !headers2) {
+      static generate(status, errorResponse, message, headers) {
+        if (!status || !headers) {
           return new APIConnectionError3({ message, cause: castToError3(errorResponse) });
         }
         const error51 = errorResponse;
         if (status === 400) {
-          return new BadRequestError3(status, error51, message, headers2);
+          return new BadRequestError3(status, error51, message, headers);
         }
         if (status === 401) {
-          return new AuthenticationError3(status, error51, message, headers2);
+          return new AuthenticationError3(status, error51, message, headers);
         }
         if (status === 403) {
-          return new PermissionDeniedError3(status, error51, message, headers2);
+          return new PermissionDeniedError3(status, error51, message, headers);
         }
         if (status === 404) {
-          return new NotFoundError3(status, error51, message, headers2);
+          return new NotFoundError3(status, error51, message, headers);
         }
         if (status === 409) {
-          return new ConflictError3(status, error51, message, headers2);
+          return new ConflictError3(status, error51, message, headers);
         }
         if (status === 422) {
-          return new UnprocessableEntityError3(status, error51, message, headers2);
+          return new UnprocessableEntityError3(status, error51, message, headers);
         }
         if (status === 429) {
-          return new RateLimitError3(status, error51, message, headers2);
+          return new RateLimitError3(status, error51, message, headers);
         }
         if (status >= 500) {
-          return new InternalServerError3(status, error51, message, headers2);
+          return new InternalServerError3(status, error51, message, headers);
         }
-        return new _APIError(status, error51, message, headers2);
+        return new _APIError(status, error51, message, headers);
       }
     };
     APIUserAbortError3 = class extends APIError3 {
@@ -72942,7 +72942,7 @@ var init_node = __esm({
       }
     };
     sleep$1 = (ms3) => new Promise((resolve2) => setTimeout(resolve2, ms3));
-    FallbackEncoder3 = ({ headers: headers2, body }) => {
+    FallbackEncoder3 = ({ headers, body }) => {
       return {
         bodyHeaders: {
           "content-type": "application/json"
@@ -73508,9 +73508,9 @@ ${underline}`);
     buildHeaders3 = (newHeaders) => {
       const targetHeaders = new Headers();
       const nullHeaders = /* @__PURE__ */ new Set();
-      for (const headers2 of newHeaders) {
+      for (const headers of newHeaders) {
         const seenHeaders = /* @__PURE__ */ new Set();
-        for (const [name, value] of iterateHeaders3(headers2)) {
+        for (const [name, value] of iterateHeaders3(headers)) {
           const lowerName = name.toLowerCase();
           if (!seenHeaders.has(lowerName)) {
             targetHeaders.delete(name);
@@ -73626,8 +73626,8 @@ ${underline}`);
       defaultIdempotencyKey() {
         return `stainless-node-retry-${uuid43()}`;
       }
-      makeStatusError(status, error51, message, headers2) {
-        return APIError3.generate(status, error51, message, headers2);
+      makeStatusError(status, error51, message, headers) {
+        return APIError3.generate(status, error51, message, headers);
       }
       buildURL(path6, query, defaultBaseURL) {
         const baseURL = !this.baseURLOverridden() && defaultBaseURL || this.baseURL;
@@ -73869,7 +73869,7 @@ ${underline}`);
           idempotencyHeaders[this.idempotencyHeader] = options.idempotencyKey;
         }
         const authHeaders = await this.authHeaders(options);
-        let headers2 = buildHeaders3([
+        let headers = buildHeaders3([
           idempotencyHeaders,
           { Accept: "application/json", "User-Agent": this.getUserAgent() },
           this._options.defaultHeaders,
@@ -73877,8 +73877,8 @@ ${underline}`);
           options.headers,
           authHeaders
         ]);
-        this.validateHeaders(headers2);
-        return headers2.values;
+        this.validateHeaders(headers);
+        return headers.values;
       }
       _makeAbort(controller) {
         return () => controller.abort();
@@ -73887,11 +73887,11 @@ ${underline}`);
         if (!body) {
           return { bodyHeaders: void 0, body: void 0 };
         }
-        const headers2 = buildHeaders3([rawHeaders]);
+        const headers = buildHeaders3([rawHeaders]);
         if (
           // Pass raw type verbatim
           ArrayBuffer.isView(body) || body instanceof ArrayBuffer || body instanceof DataView || typeof body === "string" && // Preserve legacy string encoding behavior for now
-          headers2.values.has("content-type") || // `Blob` is superset of `File`
+          headers.values.has("content-type") || // `Blob` is superset of `File`
           globalThis.Blob && body instanceof globalThis.Blob || // `FormData` -> `multipart/form-data`
           body instanceof FormData || // `URLSearchParams` -> `application/x-www-form-urlencoded`
           body instanceof URLSearchParams || // Send chunked stream (each chunk has own `length`)
@@ -73900,13 +73900,13 @@ ${underline}`);
           return { bodyHeaders: void 0, body };
         } else if (typeof body === "object" && (Symbol.asyncIterator in body || Symbol.iterator in body && "next" in body && typeof body.next === "function")) {
           return { bodyHeaders: void 0, body: ReadableStreamFrom3(body) };
-        } else if (typeof body === "object" && headers2.values.get("content-type") === "application/x-www-form-urlencoded") {
+        } else if (typeof body === "object" && headers.values.get("content-type") === "application/x-www-form-urlencoded") {
           return {
             bodyHeaders: { "content-type": "application/x-www-form-urlencoded" },
             body: this.stringifyQuery(body)
           };
         } else {
-          return this.encoder({ body, headers: headers2 });
+          return this.encoder({ body, headers });
         }
       }
     };
@@ -73947,35 +73947,35 @@ ${underline}`);
         const vertexAuthOptions = buildGoogleAuthOptions(opts.googleAuthOptions);
         this.googleAuth = new import_google_auth_library.GoogleAuth(vertexAuthOptions);
       }
-      async addAuthHeaders(headers2, url2) {
+      async addAuthHeaders(headers, url2) {
         if (this.apiKey !== void 0) {
           if (this.apiKey.startsWith("auth_tokens/")) {
             throw new Error("Ephemeral tokens are only supported by the live API.");
           }
-          this.addKeyHeader(headers2);
+          this.addKeyHeader(headers);
           return;
         }
-        return this.addGoogleAuthHeaders(headers2, url2);
+        return this.addGoogleAuthHeaders(headers, url2);
       }
-      addKeyHeader(headers2) {
-        if (headers2.get(GOOGLE_API_KEY_HEADER) !== null) {
+      addKeyHeader(headers) {
+        if (headers.get(GOOGLE_API_KEY_HEADER) !== null) {
           return;
         }
         if (this.apiKey === void 0) {
           throw new Error("Trying to set API key header but apiKey is not set");
         }
-        headers2.append(GOOGLE_API_KEY_HEADER, this.apiKey);
+        headers.append(GOOGLE_API_KEY_HEADER, this.apiKey);
       }
-      async addGoogleAuthHeaders(headers2, url2) {
+      async addGoogleAuthHeaders(headers, url2) {
         if (this.googleAuth === void 0) {
           throw new Error("Trying to set google-auth headers but googleAuth is unset");
         }
         const authHeaders = await this.googleAuth.getRequestHeaders(url2);
         for (const [key, value] of authHeaders) {
-          if (headers2.get(key) !== null) {
+          if (headers.get(key) !== null) {
             continue;
           }
-          headers2.append(key, value);
+          headers.append(key, value);
         }
       }
     };
@@ -74001,14 +74001,14 @@ ${underline}`);
       }
     };
     NodeWebSocketFactory = class {
-      create(url2, headers2, callbacks) {
-        return new NodeWebSocket(url2, headers2, callbacks);
+      create(url2, headers, callbacks) {
+        return new NodeWebSocket(url2, headers, callbacks);
       }
     };
     NodeWebSocket = class {
-      constructor(url2, headers2, callbacks) {
+      constructor(url2, headers, callbacks) {
         this.url = url2;
-        this.headers = headers2;
+        this.headers = headers;
         this.callbacks = callbacks;
       }
       connect() {
@@ -74535,21 +74535,21 @@ ${underline}`);
         const authHeaders = await googleAuth.getRequestHeaders();
         const config2 = params.config || {};
         const httpOptions = config2.httpOptions || {};
-        const headers2 = Object.assign({}, httpOptions.headers || {});
+        const headers = Object.assign({}, httpOptions.headers || {});
         if (authHeaders) {
           if (typeof authHeaders[Symbol.iterator] === "function") {
             for (const [key, value] of authHeaders) {
-              headers2[key] = value;
+              headers[key] = value;
             }
           } else {
             for (const [key, value] of Object.entries(authHeaders)) {
-              headers2[key] = value;
+              headers[key] = value;
             }
           }
         }
         return this._registerFiles({
           uris: params.uris,
-          config: Object.assign(Object.assign({}, config2), { httpOptions: Object.assign(Object.assign({}, httpOptions), { headers: headers2 }) })
+          config: Object.assign(Object.assign({}, config2), { httpOptions: Object.assign(Object.assign({}, httpOptions), { headers }) })
         });
       }
     };
@@ -76347,7 +76347,7 @@ __export(util_exports, {
   merge: () => merge,
   mergeDefs: () => mergeDefs,
   normalizeParams: () => normalizeParams,
-  nullish: () => nullish,
+  nullish: () => nullish2,
   numKeys: () => numKeys,
   objectClone: () => objectClone,
   omit: () => omit,
@@ -76409,7 +76409,7 @@ function cached(getter) {
     }
   };
 }
-function nullish(input) {
+function nullish2(input) {
   return input === null || input === void 0;
 }
 function cleanRegex(source) {
@@ -77632,7 +77632,7 @@ var init_checks = __esm({
       $ZodCheck.init(inst, def);
       (_a9 = inst._zod.def).when ?? (_a9.when = (payload) => {
         const val = payload.value;
-        return !nullish(val) && val.size !== void 0;
+        return !nullish2(val) && val.size !== void 0;
       });
       inst._zod.onattach.push((inst2) => {
         const curr = inst2._zod.bag.maximum ?? Number.POSITIVE_INFINITY;
@@ -77660,7 +77660,7 @@ var init_checks = __esm({
       $ZodCheck.init(inst, def);
       (_a9 = inst._zod.def).when ?? (_a9.when = (payload) => {
         const val = payload.value;
-        return !nullish(val) && val.size !== void 0;
+        return !nullish2(val) && val.size !== void 0;
       });
       inst._zod.onattach.push((inst2) => {
         const curr = inst2._zod.bag.minimum ?? Number.NEGATIVE_INFINITY;
@@ -77688,7 +77688,7 @@ var init_checks = __esm({
       $ZodCheck.init(inst, def);
       (_a9 = inst._zod.def).when ?? (_a9.when = (payload) => {
         const val = payload.value;
-        return !nullish(val) && val.size !== void 0;
+        return !nullish2(val) && val.size !== void 0;
       });
       inst._zod.onattach.push((inst2) => {
         const bag = inst2._zod.bag;
@@ -77718,7 +77718,7 @@ var init_checks = __esm({
       $ZodCheck.init(inst, def);
       (_a9 = inst._zod.def).when ?? (_a9.when = (payload) => {
         const val = payload.value;
-        return !nullish(val) && val.length !== void 0;
+        return !nullish2(val) && val.length !== void 0;
       });
       inst._zod.onattach.push((inst2) => {
         const curr = inst2._zod.bag.maximum ?? Number.POSITIVE_INFINITY;
@@ -77747,7 +77747,7 @@ var init_checks = __esm({
       $ZodCheck.init(inst, def);
       (_a9 = inst._zod.def).when ?? (_a9.when = (payload) => {
         const val = payload.value;
-        return !nullish(val) && val.length !== void 0;
+        return !nullish2(val) && val.length !== void 0;
       });
       inst._zod.onattach.push((inst2) => {
         const curr = inst2._zod.bag.minimum ?? Number.NEGATIVE_INFINITY;
@@ -77776,7 +77776,7 @@ var init_checks = __esm({
       $ZodCheck.init(inst, def);
       (_a9 = inst._zod.def).when ?? (_a9.when = (payload) => {
         const val = payload.value;
-        return !nullish(val) && val.length !== void 0;
+        return !nullish2(val) && val.length !== void 0;
       });
       inst._zod.onattach.push((inst2) => {
         const bag = inst2._zod.bag;
@@ -89142,7 +89142,7 @@ __export(schemas_exports2, {
   nonoptional: () => nonoptional,
   null: () => _null3,
   nullable: () => nullable2,
-  nullish: () => nullish2,
+  nullish: () => nullish3,
   number: () => number3,
   object: () => object2,
   optional: () => optional2,
@@ -89537,7 +89537,7 @@ function nullable2(innerType) {
     innerType
   });
 }
-function nullish2(innerType) {
+function nullish3(innerType) {
   return optional2(nullable2(innerType));
 }
 function _default2(innerType, defaultValue) {
@@ -91210,7 +91210,7 @@ __export(external_exports, {
   normalize: () => _normalize,
   null: () => _null3,
   nullable: () => nullable2,
-  nullish: () => nullish2,
+  nullish: () => nullish3,
   number: () => number3,
   object: () => object2,
   optional: () => optional2,
@@ -91934,29 +91934,29 @@ var init_sdks = __esm({
           const q14 = finalQuery.startsWith("&") ? finalQuery.slice(1) : finalQuery;
           reqURL.search = `?${q14}`;
         }
-        const headers2 = new Headers(opHeaders);
+        const headers = new Headers(opHeaders);
         const username = security?.basic.username;
         const password = security?.basic.password;
         if (username != null || password != null) {
           const encoded = stringToBase64([username || "", password || ""].join(":"));
-          headers2.set("Authorization", `Basic ${encoded}`);
+          headers.set("Authorization", `Basic ${encoded}`);
         }
         const securityHeaders = new Headers(security?.headers || {});
         for (const [k16, v24] of securityHeaders) {
-          headers2.set(k16, v24);
+          headers.set(k16, v24);
         }
-        let cookie = headers2.get("cookie") || "";
+        let cookie = headers.get("cookie") || "";
         for (const [k16, v24] of Object.entries(security?.cookies || {})) {
           cookie += `; ${k16}=${v24}`;
         }
         cookie = cookie.startsWith("; ") ? cookie.slice(2) : cookie;
-        headers2.set("cookie", cookie);
+        headers.set("cookie", cookie);
         const userHeaders = new Headers(options?.headers ?? options?.fetchOptions?.headers);
         for (const [k16, v24] of userHeaders) {
-          headers2.set(k16, v24);
+          headers.set(k16, v24);
         }
         if (!isBrowserLike) {
-          headers2.set(conf.uaHeader ?? "user-agent", conf.userAgent ?? SDK_METADATA.userAgent);
+          headers.set(conf.uaHeader ?? "user-agent", conf.userAgent ?? SDK_METADATA.userAgent);
         }
         const fetchOptions = {
           ...options?.fetchOptions,
@@ -91976,7 +91976,7 @@ var init_sdks = __esm({
             options: {
               ...fetchOptions,
               body: conf.body ?? null,
-              headers: headers2,
+              headers,
               method
             }
           });
@@ -92306,9 +92306,9 @@ function match(...matchers) {
     }
   };
 }
-function unpackHeaders(headers2) {
+function unpackHeaders(headers) {
   const out = {};
-  for (const [k16, v24] of headers2.entries()) {
+  for (const [k16, v24] of headers.entries()) {
     out[k16] = v24.split(headerValRE);
   }
   return out;
@@ -104781,7 +104781,7 @@ async function $do(client, request, options) {
   const payload = parsed.value;
   const body = encodeJSON("body", payload, { explode: true });
   const path6 = pathToFunc("/v1/agents/completions")();
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
   }));
@@ -104803,7 +104803,7 @@ async function $do(client, request, options) {
     method: "POST",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     body,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 3e4
@@ -105015,7 +105015,7 @@ async function $do2(client, request, options) {
   const payload = parsed.value;
   const body = encodeJSON("body", payload, { explode: true });
   const path6 = pathToFunc("/v1/agents/completions#stream")();
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "text/event-stream"
   }));
@@ -105037,7 +105037,7 @@ async function $do2(client, request, options) {
     method: "POST",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     body,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 3e4
@@ -108175,7 +108175,7 @@ async function $do3(client, request, options) {
   const payload = parsed.value;
   const body = encodeJSON("body", payload, { explode: true });
   const path6 = pathToFunc("/v1/audio/speech")();
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: options?.acceptHeaderOverride || "application/json;q=1, text/event-stream;q=0"
   }));
@@ -108197,7 +108197,7 @@ async function $do3(client, request, options) {
     method: "POST",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     body,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 3e4
@@ -108326,7 +108326,7 @@ async function $do4(client, request, options) {
     appendForm(body, "timestamp_granularities", payload.timestamp_granularities);
   }
   const path6 = pathToFunc("/v1/audio/transcriptions")();
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
   const secConfig = await extractSecurity(client._options.apiKey);
@@ -108347,7 +108347,7 @@ async function $do4(client, request, options) {
     method: "POST",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     body,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 3e4
@@ -108441,7 +108441,7 @@ async function $do5(client, request, options) {
     appendForm(body, "timestamp_granularities", payload.timestamp_granularities);
   }
   const path6 = pathToFunc("/v1/audio/transcriptions#stream")();
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     Accept: "text/event-stream"
   }));
   const secConfig = await extractSecurity(client._options.apiKey);
@@ -108462,7 +108462,7 @@ async function $do5(client, request, options) {
     method: "POST",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     body,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 3e4
@@ -108550,7 +108550,7 @@ async function $do6(client, request, options) {
   const payload = parsed.value;
   const body = encodeJSON("body", payload, { explode: true });
   const path6 = pathToFunc("/v1/audio/voices")();
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
   }));
@@ -108572,7 +108572,7 @@ async function $do6(client, request, options) {
     method: "POST",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     body,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 3e4
@@ -108633,7 +108633,7 @@ async function $do7(client, request, options) {
     })
   };
   const path6 = pathToFunc("/v1/audio/voices/{voice_id}")(pathParams);
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
   const secConfig = await extractSecurity(client._options.apiKey);
@@ -108654,7 +108654,7 @@ async function $do7(client, request, options) {
     method: "DELETE",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     body,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 3e4
@@ -108716,7 +108716,7 @@ async function $do8(client, request, options) {
     })
   };
   const path6 = pathToFunc("/v1/audio/voices/{voice_id}")(pathParams);
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
   const secConfig = await extractSecurity(client._options.apiKey);
@@ -108737,7 +108737,7 @@ async function $do8(client, request, options) {
     method: "GET",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     body,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 3e4
@@ -108799,7 +108799,7 @@ async function $do9(client, request, options) {
     })
   };
   const path6 = pathToFunc("/v1/audio/voices/{voice_id}/sample")(pathParams);
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     Accept: "audio/wav"
   }));
   const secConfig = await extractSecurity(client._options.apiKey);
@@ -108820,7 +108820,7 @@ async function $do9(client, request, options) {
     method: "GET",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     body,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 3e4
@@ -108881,7 +108881,7 @@ async function $do10(client, request, options) {
     "offset": payload?.offset,
     "type": payload?.type
   });
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
   const secConfig = await extractSecurity(client._options.apiKey);
@@ -108902,7 +108902,7 @@ async function $do10(client, request, options) {
     method: "GET",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     query,
     body,
     userAgent: client._options.userAgent,
@@ -108967,7 +108967,7 @@ async function $do11(client, request, options) {
     })
   };
   const path6 = pathToFunc("/v1/audio/voices/{voice_id}")(pathParams);
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
   }));
@@ -108989,7 +108989,7 @@ async function $do11(client, request, options) {
     method: "PATCH",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     body,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 3e4
@@ -109147,7 +109147,7 @@ async function $do12(client, request, options) {
     })
   };
   const path6 = pathToFunc("/v1/batch/jobs/{job_id}/cancel")(pathParams);
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
   const secConfig = await extractSecurity(client._options.apiKey);
@@ -109168,7 +109168,7 @@ async function $do12(client, request, options) {
     method: "POST",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     body,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 3e4
@@ -109220,7 +109220,7 @@ async function $do13(client, request, options) {
   const payload = parsed.value;
   const body = encodeJSON("body", payload, { explode: true });
   const path6 = pathToFunc("/v1/batch/jobs")();
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
   }));
@@ -109242,7 +109242,7 @@ async function $do13(client, request, options) {
     method: "POST",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     body,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 3e4
@@ -109299,7 +109299,7 @@ async function $do14(client, request, options) {
     })
   };
   const path6 = pathToFunc("/v1/batch/jobs/{job_id}")(pathParams);
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
   const secConfig = await extractSecurity(client._options.apiKey);
@@ -109320,7 +109320,7 @@ async function $do14(client, request, options) {
     method: "DELETE",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     body,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 3e4
@@ -109381,7 +109381,7 @@ async function $do15(client, request, options) {
   const query = encodeFormQuery({
     "inline": payload.inline
   });
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
   const secConfig = await extractSecurity(client._options.apiKey);
@@ -109402,7 +109402,7 @@ async function $do15(client, request, options) {
     method: "GET",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     query,
     body,
     userAgent: client._options.userAgent,
@@ -109466,7 +109466,7 @@ async function $do16(client, request, options) {
     "page_size": payload?.page_size,
     "status": payload?.status
   });
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
   const secConfig = await extractSecurity(client._options.apiKey);
@@ -109487,7 +109487,7 @@ async function $do16(client, request, options) {
     method: "GET",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     query,
     body,
     userAgent: client._options.userAgent,
@@ -109619,7 +109619,7 @@ async function $do17(client, request, options) {
   const payload = parsed.value;
   const body = encodeJSON("body", payload, { explode: true });
   const path6 = pathToFunc("/v1/agents")();
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
   }));
@@ -109641,7 +109641,7 @@ async function $do17(client, request, options) {
     method: "POST",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     body,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 3e4
@@ -109706,7 +109706,7 @@ async function $do18(client, request, options) {
     "alias": payload.alias,
     "version": payload.version
   });
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
   const secConfig = await extractSecurity(client._options.apiKey);
@@ -109727,7 +109727,7 @@ async function $do18(client, request, options) {
     method: "PUT",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     query,
     body,
     userAgent: client._options.userAgent,
@@ -109790,7 +109790,7 @@ async function $do19(client, request, options) {
     })
   };
   const path6 = pathToFunc("/v1/agents/{agent_id}")(pathParams);
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
   const secConfig = await extractSecurity(client._options.apiKey);
@@ -109811,7 +109811,7 @@ async function $do19(client, request, options) {
     method: "DELETE",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     body,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 3e4
@@ -109876,7 +109876,7 @@ async function $do20(client, request, options) {
   const query = encodeFormQuery({
     "alias": payload.alias
   });
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
   const secConfig = await extractSecurity(client._options.apiKey);
@@ -109897,7 +109897,7 @@ async function $do20(client, request, options) {
     method: "DELETE",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     query,
     body,
     userAgent: client._options.userAgent,
@@ -109963,7 +109963,7 @@ async function $do21(client, request, options) {
   const query = encodeFormQuery({
     "agent_version": payload.agent_version
   });
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
   const secConfig = await extractSecurity(client._options.apiKey);
@@ -109984,7 +109984,7 @@ async function $do21(client, request, options) {
     method: "GET",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     query,
     body,
     userAgent: client._options.userAgent,
@@ -110051,7 +110051,7 @@ async function $do22(client, request, options) {
     })
   };
   const path6 = pathToFunc("/v1/agents/{agent_id}/versions/{version}")(pathParams);
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
   const secConfig = await extractSecurity(client._options.apiKey);
@@ -110072,7 +110072,7 @@ async function $do22(client, request, options) {
     method: "GET",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     body,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 3e4
@@ -110139,7 +110139,7 @@ async function $do23(client, request, options) {
   }), encodeJSONQuery({
     "metadata": payload?.metadata
   }, { explode: false }));
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
   const secConfig = await extractSecurity(client._options.apiKey);
@@ -110160,7 +110160,7 @@ async function $do23(client, request, options) {
     method: "GET",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     query,
     body,
     userAgent: client._options.userAgent,
@@ -110224,7 +110224,7 @@ async function $do24(client, request, options) {
     })
   };
   const path6 = pathToFunc("/v1/agents/{agent_id}/aliases")(pathParams);
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
   const secConfig = await extractSecurity(client._options.apiKey);
@@ -110245,7 +110245,7 @@ async function $do24(client, request, options) {
     method: "GET",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     body,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 3e4
@@ -110312,7 +110312,7 @@ async function $do25(client, request, options) {
     "page": payload.page,
     "page_size": payload.page_size
   });
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
   const secConfig = await extractSecurity(client._options.apiKey);
@@ -110333,7 +110333,7 @@ async function $do25(client, request, options) {
     method: "GET",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     query,
     body,
     userAgent: client._options.userAgent,
@@ -110399,7 +110399,7 @@ async function $do26(client, request, options) {
     })
   };
   const path6 = pathToFunc("/v1/agents/{agent_id}")(pathParams);
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
   }));
@@ -110421,7 +110421,7 @@ async function $do26(client, request, options) {
     method: "PATCH",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     body,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 3e4
@@ -110486,7 +110486,7 @@ async function $do27(client, request, options) {
   const query = encodeFormQuery({
     "version": payload.version
   });
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
   const secConfig = await extractSecurity(client._options.apiKey);
@@ -110507,7 +110507,7 @@ async function $do27(client, request, options) {
     method: "PATCH",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     query,
     body,
     userAgent: client._options.userAgent,
@@ -110694,7 +110694,7 @@ async function $do28(client, request, options) {
   const query = encodeFormQuery({
     "credentials_name": payload.credentials_name
   });
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
   }));
@@ -110716,7 +110716,7 @@ async function $do28(client, request, options) {
     method: "POST",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     query,
     body,
     userAgent: client._options.userAgent,
@@ -110773,7 +110773,7 @@ async function $do29(client, request, options) {
   const payload = parsed.value;
   const body = encodeJSON("body", payload, { explode: true });
   const path6 = pathToFunc("/v1/connectors")();
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
   }));
@@ -110795,7 +110795,7 @@ async function $do29(client, request, options) {
     method: "POST",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     body,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 3e4
@@ -110855,7 +110855,7 @@ async function $do30(client, request, options) {
     connector_id_or_name: encodeSimple("connector_id_or_name", payload.connector_id_or_name, { explode: false, charEncoding: "percent" })
   };
   const path6 = pathToFunc("/v1/connectors/{connector_id_or_name}/organization/credentials")(pathParams);
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
   }));
@@ -110877,7 +110877,7 @@ async function $do30(client, request, options) {
     method: "POST",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     body,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 3e4
@@ -110938,7 +110938,7 @@ async function $do31(client, request, options) {
     connector_id_or_name: encodeSimple("connector_id_or_name", payload.connector_id_or_name, { explode: false, charEncoding: "percent" })
   };
   const path6 = pathToFunc("/v1/connectors/{connector_id_or_name}/user/credentials")(pathParams);
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
   }));
@@ -110960,7 +110960,7 @@ async function $do31(client, request, options) {
     method: "POST",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     body,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 3e4
@@ -111021,7 +111021,7 @@ async function $do32(client, request, options) {
     connector_id_or_name: encodeSimple("connector_id_or_name", payload.connector_id_or_name, { explode: false, charEncoding: "percent" })
   };
   const path6 = pathToFunc("/v1/connectors/{connector_id_or_name}/workspace/credentials")(pathParams);
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
   }));
@@ -111043,7 +111043,7 @@ async function $do32(client, request, options) {
     method: "POST",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     body,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 3e4
@@ -111105,7 +111105,7 @@ async function $do33(client, request, options) {
     })
   };
   const path6 = pathToFunc("/v1/connectors/{connector_id}#id")(pathParams);
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
   const secConfig = await extractSecurity(client._options.apiKey);
@@ -111126,7 +111126,7 @@ async function $do33(client, request, options) {
     method: "DELETE",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     body,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 3e4
@@ -111186,7 +111186,7 @@ async function $do34(client, request, options) {
     credentials_name: encodeSimple("credentials_name", payload.credentials_name, { explode: false, charEncoding: "percent" })
   };
   const path6 = pathToFunc("/v1/connectors/{connector_id_or_name}/organization/credentials/{credentials_name}")(pathParams);
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
   const secConfig = await extractSecurity(client._options.apiKey);
@@ -111207,7 +111207,7 @@ async function $do34(client, request, options) {
     method: "DELETE",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     body,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 3e4
@@ -111267,7 +111267,7 @@ async function $do35(client, request, options) {
     credentials_name: encodeSimple("credentials_name", payload.credentials_name, { explode: false, charEncoding: "percent" })
   };
   const path6 = pathToFunc("/v1/connectors/{connector_id_or_name}/user/credentials/{credentials_name}")(pathParams);
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
   const secConfig = await extractSecurity(client._options.apiKey);
@@ -111288,7 +111288,7 @@ async function $do35(client, request, options) {
     method: "DELETE",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     body,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 3e4
@@ -111348,7 +111348,7 @@ async function $do36(client, request, options) {
     credentials_name: encodeSimple("credentials_name", payload.credentials_name, { explode: false, charEncoding: "percent" })
   };
   const path6 = pathToFunc("/v1/connectors/{connector_id_or_name}/workspace/credentials/{credentials_name}")(pathParams);
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
   const secConfig = await extractSecurity(client._options.apiKey);
@@ -111369,7 +111369,7 @@ async function $do36(client, request, options) {
     method: "DELETE",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     body,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 3e4
@@ -111432,7 +111432,7 @@ async function $do37(client, request, options) {
     "fetch_connection_secrets": payload.fetch_connection_secrets,
     "fetch_customer_data": payload.fetch_customer_data
   });
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
   const secConfig = await extractSecurity(client._options.apiKey);
@@ -111453,7 +111453,7 @@ async function $do37(client, request, options) {
     method: "GET",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     query,
     body,
     userAgent: client._options.userAgent,
@@ -111513,7 +111513,7 @@ async function $do38(client, request, options) {
     connector_id_or_name: encodeSimple("connector_id_or_name", payload.connector_id_or_name, { explode: false, charEncoding: "percent" })
   };
   const path6 = pathToFunc("/v1/connectors/{connector_id_or_name}/authentication_methods")(pathParams);
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
   const secConfig = await extractSecurity(client._options.apiKey);
@@ -111534,7 +111534,7 @@ async function $do38(client, request, options) {
     method: "GET",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     body,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 3e4
@@ -111594,7 +111594,7 @@ async function $do39(client, request, options) {
     "app_return_url": payload.app_return_url,
     "credentials_name": payload.credentials_name
   });
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
   const secConfig = await extractSecurity(client._options.apiKey);
@@ -111615,7 +111615,7 @@ async function $do39(client, request, options) {
     method: "GET",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     query,
     body,
     userAgent: client._options.userAgent,
@@ -111677,7 +111677,7 @@ async function $do40(client, request, options) {
     "page_size": payload?.page_size,
     "query_filters": payload?.query_filters
   });
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
   const secConfig = await extractSecurity(client._options.apiKey);
@@ -111698,7 +111698,7 @@ async function $do40(client, request, options) {
     method: "GET",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     query,
     body,
     userAgent: client._options.userAgent,
@@ -111762,7 +111762,7 @@ async function $do41(client, request, options) {
     "auth_type": payload.auth_type,
     "fetch_default": payload.fetch_default
   });
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
   const secConfig = await extractSecurity(client._options.apiKey);
@@ -111783,7 +111783,7 @@ async function $do41(client, request, options) {
     method: "GET",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     query,
     body,
     userAgent: client._options.userAgent,
@@ -111850,7 +111850,7 @@ async function $do42(client, request, options) {
     "pretty": payload.pretty,
     "refresh": payload.refresh
   });
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
   const secConfig = await extractSecurity(client._options.apiKey);
@@ -111871,7 +111871,7 @@ async function $do42(client, request, options) {
     method: "GET",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     query,
     body,
     userAgent: client._options.userAgent,
@@ -111934,7 +111934,7 @@ async function $do43(client, request, options) {
     "auth_type": payload.auth_type,
     "fetch_default": payload.fetch_default
   });
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
   const secConfig = await extractSecurity(client._options.apiKey);
@@ -111955,7 +111955,7 @@ async function $do43(client, request, options) {
     method: "GET",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     query,
     body,
     userAgent: client._options.userAgent,
@@ -112019,7 +112019,7 @@ async function $do44(client, request, options) {
     "auth_type": payload.auth_type,
     "fetch_default": payload.fetch_default
   });
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
   const secConfig = await extractSecurity(client._options.apiKey);
@@ -112040,7 +112040,7 @@ async function $do44(client, request, options) {
     method: "GET",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     query,
     body,
     userAgent: client._options.userAgent,
@@ -112105,7 +112105,7 @@ async function $do45(client, request, options) {
     })
   };
   const path6 = pathToFunc("/v1/connectors/{connector_id}#id")(pathParams);
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
   }));
@@ -112127,7 +112127,7 @@ async function $do45(client, request, options) {
     method: "PATCH",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     body,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 3e4
@@ -112382,7 +112382,7 @@ async function $do46(client, request, options) {
     })
   };
   const path6 = pathToFunc("/v1/conversations/{conversation_id}")(pathParams);
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
   }));
@@ -112404,7 +112404,7 @@ async function $do46(client, request, options) {
     method: "POST",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     body,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 3e4
@@ -112468,7 +112468,7 @@ async function $do47(client, request, options) {
     })
   };
   const path6 = pathToFunc("/v1/conversations/{conversation_id}#stream")(pathParams);
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "text/event-stream"
   }));
@@ -112490,7 +112490,7 @@ async function $do47(client, request, options) {
     method: "POST",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     body,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 3e4
@@ -112561,7 +112561,7 @@ async function $do48(client, request, options) {
     })
   };
   const path6 = pathToFunc("/v1/conversations/{conversation_id}")(pathParams);
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
   const secConfig = await extractSecurity(client._options.apiKey);
@@ -112582,7 +112582,7 @@ async function $do48(client, request, options) {
     method: "DELETE",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     body,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 3e4
@@ -112644,7 +112644,7 @@ async function $do49(client, request, options) {
     })
   };
   const path6 = pathToFunc("/v1/conversations/{conversation_id}")(pathParams);
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
   const secConfig = await extractSecurity(client._options.apiKey);
@@ -112665,7 +112665,7 @@ async function $do49(client, request, options) {
     method: "GET",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     body,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 3e4
@@ -112726,7 +112726,7 @@ async function $do50(client, request, options) {
     })
   };
   const path6 = pathToFunc("/v1/conversations/{conversation_id}/history")(pathParams);
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
   const secConfig = await extractSecurity(client._options.apiKey);
@@ -112747,7 +112747,7 @@ async function $do50(client, request, options) {
     method: "GET",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     body,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 3e4
@@ -112809,7 +112809,7 @@ async function $do51(client, request, options) {
     })
   };
   const path6 = pathToFunc("/v1/conversations/{conversation_id}/messages")(pathParams);
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
   const secConfig = await extractSecurity(client._options.apiKey);
@@ -112830,7 +112830,7 @@ async function $do51(client, request, options) {
     method: "GET",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     body,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 3e4
@@ -112892,7 +112892,7 @@ async function $do52(client, request, options) {
   }), encodeJSONQuery({
     "metadata": payload?.metadata
   }, { explode: false }));
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
   const secConfig = await extractSecurity(client._options.apiKey);
@@ -112913,7 +112913,7 @@ async function $do52(client, request, options) {
     method: "GET",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     query,
     body,
     userAgent: client._options.userAgent,
@@ -112978,7 +112978,7 @@ async function $do53(client, request, options) {
     })
   };
   const path6 = pathToFunc("/v1/conversations/{conversation_id}/restart")(pathParams);
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
   }));
@@ -113000,7 +113000,7 @@ async function $do53(client, request, options) {
     method: "POST",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     body,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 3e4
@@ -113064,7 +113064,7 @@ async function $do54(client, request, options) {
     })
   };
   const path6 = pathToFunc("/v1/conversations/{conversation_id}/restart#stream")(pathParams);
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "text/event-stream"
   }));
@@ -113086,7 +113086,7 @@ async function $do54(client, request, options) {
     method: "POST",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     body,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 3e4
@@ -113151,7 +113151,7 @@ async function $do55(client, request, options) {
   const payload = parsed.value;
   const body = encodeJSON("body", payload, { explode: true });
   const path6 = pathToFunc("/v1/conversations")();
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
   }));
@@ -113173,7 +113173,7 @@ async function $do55(client, request, options) {
     method: "POST",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     body,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 3e4
@@ -113228,7 +113228,7 @@ async function $do56(client, request, options) {
   const payload = parsed.value;
   const body = encodeJSON("body", payload, { explode: true });
   const path6 = pathToFunc("/v1/conversations#stream")();
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "text/event-stream"
   }));
@@ -113250,7 +113250,7 @@ async function $do56(client, request, options) {
     method: "POST",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     body,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 3e4
@@ -113435,7 +113435,7 @@ async function $do57(client, request, options) {
   const payload = parsed.value;
   const body = encodeJSON("body", payload, { explode: true });
   const path6 = pathToFunc("/v1/libraries")();
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
   }));
@@ -113457,7 +113457,7 @@ async function $do57(client, request, options) {
     method: "POST",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     body,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 3e4
@@ -113518,7 +113518,7 @@ async function $do58(client, request, options) {
     })
   };
   const path6 = pathToFunc("/v1/libraries/{library_id}")(pathParams);
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
   const secConfig = await extractSecurity(client._options.apiKey);
@@ -113539,7 +113539,7 @@ async function $do58(client, request, options) {
     method: "DELETE",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     body,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 3e4
@@ -113601,7 +113601,7 @@ async function $do59(client, request, options) {
     })
   };
   const path6 = pathToFunc("/v1/libraries/{library_id}")(pathParams);
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
   const secConfig = await extractSecurity(client._options.apiKey);
@@ -113622,7 +113622,7 @@ async function $do59(client, request, options) {
     method: "GET",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     body,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 3e4
@@ -113684,7 +113684,7 @@ async function $do60(client, request, options) {
     "page_size": payload?.page_size,
     "search": payload?.search
   });
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
   const secConfig = await extractSecurity(client._options.apiKey);
@@ -113705,7 +113705,7 @@ async function $do60(client, request, options) {
     method: "GET",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     query,
     body,
     userAgent: client._options.userAgent,
@@ -113770,7 +113770,7 @@ async function $do61(client, request, options) {
     })
   };
   const path6 = pathToFunc("/v1/libraries/{library_id}")(pathParams);
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
   }));
@@ -113792,7 +113792,7 @@ async function $do61(client, request, options) {
     method: "PUT",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     body,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 3e4
@@ -113854,7 +113854,7 @@ async function $do62(client, request, options) {
     })
   };
   const path6 = pathToFunc("/v1/libraries/{library_id}/share")(pathParams);
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
   }));
@@ -113876,7 +113876,7 @@ async function $do62(client, request, options) {
     method: "DELETE",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     body,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 3e4
@@ -113938,7 +113938,7 @@ async function $do63(client, request, options) {
     })
   };
   const path6 = pathToFunc("/v1/libraries/{library_id}/share")(pathParams);
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
   const secConfig = await extractSecurity(client._options.apiKey);
@@ -113959,7 +113959,7 @@ async function $do63(client, request, options) {
     method: "GET",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     body,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 3e4
@@ -114021,7 +114021,7 @@ async function $do64(client, request, options) {
     })
   };
   const path6 = pathToFunc("/v1/libraries/{library_id}/share")(pathParams);
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
   }));
@@ -114043,7 +114043,7 @@ async function $do64(client, request, options) {
     method: "PUT",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     body,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 3e4
@@ -114150,7 +114150,7 @@ async function $do65(client, request, options) {
     })
   };
   const path6 = pathToFunc("/v1/libraries/{library_id}/documents/{document_id}")(pathParams);
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
   const secConfig = await extractSecurity(client._options.apiKey);
@@ -114171,7 +114171,7 @@ async function $do65(client, request, options) {
     method: "DELETE",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     body,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 3e4
@@ -114237,7 +114237,7 @@ async function $do66(client, request, options) {
     })
   };
   const path6 = pathToFunc("/v1/libraries/{library_id}/documents/{document_id}/extracted-text-signed-url")(pathParams);
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
   const secConfig = await extractSecurity(client._options.apiKey);
@@ -114258,7 +114258,7 @@ async function $do66(client, request, options) {
     method: "GET",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     body,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 3e4
@@ -114324,7 +114324,7 @@ async function $do67(client, request, options) {
     })
   };
   const path6 = pathToFunc("/v1/libraries/{library_id}/documents/{document_id}")(pathParams);
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
   const secConfig = await extractSecurity(client._options.apiKey);
@@ -114345,7 +114345,7 @@ async function $do67(client, request, options) {
     method: "GET",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     body,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 3e4
@@ -114411,7 +114411,7 @@ async function $do68(client, request, options) {
     })
   };
   const path6 = pathToFunc("/v1/libraries/{library_id}/documents/{document_id}/signed-url")(pathParams);
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
   const secConfig = await extractSecurity(client._options.apiKey);
@@ -114432,7 +114432,7 @@ async function $do68(client, request, options) {
     method: "GET",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     body,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 3e4
@@ -114502,7 +114502,7 @@ async function $do69(client, request, options) {
     "sort_by": payload.sort_by,
     "sort_order": payload.sort_order
   });
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
   const secConfig = await extractSecurity(client._options.apiKey);
@@ -114523,7 +114523,7 @@ async function $do69(client, request, options) {
     method: "GET",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     query,
     body,
     userAgent: client._options.userAgent,
@@ -114590,7 +114590,7 @@ async function $do70(client, request, options) {
     })
   };
   const path6 = pathToFunc("/v1/libraries/{library_id}/documents/{document_id}/reprocess")(pathParams);
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
   const secConfig = await extractSecurity(client._options.apiKey);
@@ -114611,7 +114611,7 @@ async function $do70(client, request, options) {
     method: "POST",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     body,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 3e4
@@ -114677,7 +114677,7 @@ async function $do71(client, request, options) {
     })
   };
   const path6 = pathToFunc("/v1/libraries/{library_id}/documents/{document_id}/status")(pathParams);
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
   const secConfig = await extractSecurity(client._options.apiKey);
@@ -114698,7 +114698,7 @@ async function $do71(client, request, options) {
     method: "GET",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     body,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 3e4
@@ -114768,7 +114768,7 @@ async function $do72(client, request, options) {
     "page_end": payload.page_end,
     "page_start": payload.page_start
   });
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
   const secConfig = await extractSecurity(client._options.apiKey);
@@ -114789,7 +114789,7 @@ async function $do72(client, request, options) {
     method: "GET",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     query,
     body,
     userAgent: client._options.userAgent,
@@ -114858,7 +114858,7 @@ async function $do73(client, request, options) {
     })
   };
   const path6 = pathToFunc("/v1/libraries/{library_id}/documents/{document_id}")(pathParams);
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
   }));
@@ -114880,7 +114880,7 @@ async function $do73(client, request, options) {
     method: "PUT",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     body,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 3e4
@@ -114955,7 +114955,7 @@ async function $do74(client, request, options) {
     })
   };
   const path6 = pathToFunc("/v1/libraries/{library_id}/documents")(pathParams);
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
   const secConfig = await extractSecurity(client._options.apiKey);
@@ -114976,7 +114976,7 @@ async function $do74(client, request, options) {
     method: "POST",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     body,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 3e4
@@ -115217,7 +115217,7 @@ async function $do75(client, request, options) {
   const payload = parsed.value;
   const body = encodeJSON("body", payload, { explode: true });
   const path6 = pathToFunc("/v1/observability/campaigns")();
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
   }));
@@ -115239,7 +115239,7 @@ async function $do75(client, request, options) {
     method: "POST",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     body,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 3e4
@@ -115300,7 +115300,7 @@ async function $do76(client, request, options) {
     })
   };
   const path6 = pathToFunc("/v1/observability/campaigns/{campaign_id}")(pathParams);
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
   const secConfig = await extractSecurity(client._options.apiKey);
@@ -115321,7 +115321,7 @@ async function $do76(client, request, options) {
     method: "DELETE",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     body,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 3e4
@@ -115383,7 +115383,7 @@ async function $do77(client, request, options) {
     })
   };
   const path6 = pathToFunc("/v1/observability/campaigns/{campaign_id}")(pathParams);
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
   const secConfig = await extractSecurity(client._options.apiKey);
@@ -115404,7 +115404,7 @@ async function $do77(client, request, options) {
     method: "GET",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     body,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 3e4
@@ -115466,7 +115466,7 @@ async function $do78(client, request, options) {
     })
   };
   const path6 = pathToFunc("/v1/observability/campaigns/{campaign_id}/status")(pathParams);
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
   const secConfig = await extractSecurity(client._options.apiKey);
@@ -115487,7 +115487,7 @@ async function $do78(client, request, options) {
     method: "GET",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     body,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 3e4
@@ -115548,7 +115548,7 @@ async function $do79(client, request, options) {
     "page_size": payload?.page_size,
     "q": payload?.q
   });
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
   const secConfig = await extractSecurity(client._options.apiKey);
@@ -115569,7 +115569,7 @@ async function $do79(client, request, options) {
     method: "GET",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     query,
     body,
     userAgent: client._options.userAgent,
@@ -115636,7 +115636,7 @@ async function $do80(client, request, options) {
     "page": payload.page,
     "page_size": payload.page_size
   });
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
   const secConfig = await extractSecurity(client._options.apiKey);
@@ -115657,7 +115657,7 @@ async function $do80(client, request, options) {
     method: "GET",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     query,
     body,
     userAgent: client._options.userAgent,
@@ -115773,7 +115773,7 @@ async function $do81(client, request, options) {
     })
   };
   const path6 = pathToFunc("/v1/observability/chat-completion-events/{event_id}")(pathParams);
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
   const secConfig = await extractSecurity(client._options.apiKey);
@@ -115794,7 +115794,7 @@ async function $do81(client, request, options) {
     method: "GET",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     body,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 3e4
@@ -115856,7 +115856,7 @@ async function $do82(client, request, options) {
     })
   };
   const path6 = pathToFunc("/v1/observability/chat-completion-events/{event_id}/similar-events")(pathParams);
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
   const secConfig = await extractSecurity(client._options.apiKey);
@@ -115877,7 +115877,7 @@ async function $do82(client, request, options) {
     method: "GET",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     body,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 3e4
@@ -115941,7 +115941,7 @@ async function $do83(client, request, options) {
     })
   };
   const path6 = pathToFunc("/v1/observability/chat-completion-events/{event_id}/live-judging")(pathParams);
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
   }));
@@ -115963,7 +115963,7 @@ async function $do83(client, request, options) {
     method: "POST",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     body,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 3e4
@@ -116025,7 +116025,7 @@ async function $do84(client, request, options) {
     "cursor": payload.cursor,
     "page_size": payload.page_size
   });
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
   }));
@@ -116047,7 +116047,7 @@ async function $do84(client, request, options) {
     method: "POST",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     query,
     body,
     userAgent: client._options.userAgent,
@@ -116104,7 +116104,7 @@ async function $do85(client, request, options) {
   const payload = parsed.value;
   const body = encodeJSON("body", payload, { explode: true });
   const path6 = pathToFunc("/v1/observability/chat-completion-events/search-ids")();
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
   }));
@@ -116126,7 +116126,7 @@ async function $do85(client, request, options) {
     method: "POST",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     body,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 3e4
@@ -116189,7 +116189,7 @@ async function $do86(client, request, options) {
     })
   };
   const path6 = pathToFunc("/v1/observability/chat-completion-fields/{field_name}/options-counts")(pathParams);
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
   }));
@@ -116211,7 +116211,7 @@ async function $do86(client, request, options) {
     method: "POST",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     body,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 3e4
@@ -116276,7 +116276,7 @@ async function $do87(client, request, options) {
   const query = encodeFormQuery({
     "operator": payload.operator
   });
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
   const secConfig = await extractSecurity(client._options.apiKey);
@@ -116297,7 +116297,7 @@ async function $do87(client, request, options) {
     method: "GET",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     query,
     body,
     userAgent: client._options.userAgent,
@@ -116348,7 +116348,7 @@ function betaObservabilityChatCompletionEventsFieldsList(client, options) {
 }
 async function $do88(client, options) {
   const path6 = pathToFunc("/v1/observability/chat-completion-fields")();
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
   const secConfig = await extractSecurity(client._options.apiKey);
@@ -116369,7 +116369,7 @@ async function $do88(client, options) {
     method: "GET",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 3e4
   }, options);
@@ -116504,7 +116504,7 @@ async function $do89(client, request, options) {
   const payload = parsed.value;
   const body = encodeJSON("body", payload, { explode: true });
   const path6 = pathToFunc("/v1/observability/datasets")();
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
   }));
@@ -116526,7 +116526,7 @@ async function $do89(client, request, options) {
     method: "POST",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     body,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 3e4
@@ -116589,7 +116589,7 @@ async function $do90(client, request, options) {
     })
   };
   const path6 = pathToFunc("/v1/observability/datasets/{dataset_id}/records")(pathParams);
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
   }));
@@ -116611,7 +116611,7 @@ async function $do90(client, request, options) {
     method: "POST",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     body,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 3e4
@@ -116673,7 +116673,7 @@ async function $do91(client, request, options) {
     })
   };
   const path6 = pathToFunc("/v1/observability/datasets/{dataset_id}")(pathParams);
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
   const secConfig = await extractSecurity(client._options.apiKey);
@@ -116694,7 +116694,7 @@ async function $do91(client, request, options) {
     method: "DELETE",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     body,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 3e4
@@ -116756,7 +116756,7 @@ async function $do92(client, request, options) {
     })
   };
   const path6 = pathToFunc("/v1/observability/datasets/{dataset_id}/exports/to-jsonl")(pathParams);
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
   const secConfig = await extractSecurity(client._options.apiKey);
@@ -116777,7 +116777,7 @@ async function $do92(client, request, options) {
     method: "GET",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     body,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 3e4
@@ -116839,7 +116839,7 @@ async function $do93(client, request, options) {
     })
   };
   const path6 = pathToFunc("/v1/observability/datasets/{dataset_id}")(pathParams);
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
   const secConfig = await extractSecurity(client._options.apiKey);
@@ -116860,7 +116860,7 @@ async function $do93(client, request, options) {
     method: "GET",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     body,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 3e4
@@ -116926,7 +116926,7 @@ async function $do94(client, request, options) {
     })
   };
   const path6 = pathToFunc("/v1/observability/datasets/{dataset_id}/tasks/{task_id}")(pathParams);
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
   const secConfig = await extractSecurity(client._options.apiKey);
@@ -116947,7 +116947,7 @@ async function $do94(client, request, options) {
     method: "GET",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     body,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 3e4
@@ -117011,7 +117011,7 @@ async function $do95(client, request, options) {
     })
   };
   const path6 = pathToFunc("/v1/observability/datasets/{dataset_id}/imports/from-campaign")(pathParams);
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
   }));
@@ -117033,7 +117033,7 @@ async function $do95(client, request, options) {
     method: "POST",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     body,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 3e4
@@ -117097,7 +117097,7 @@ async function $do96(client, request, options) {
     })
   };
   const path6 = pathToFunc("/v1/observability/datasets/{dataset_id}/imports/from-dataset")(pathParams);
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
   }));
@@ -117119,7 +117119,7 @@ async function $do96(client, request, options) {
     method: "POST",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     body,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 3e4
@@ -117183,7 +117183,7 @@ async function $do97(client, request, options) {
     })
   };
   const path6 = pathToFunc("/v1/observability/datasets/{dataset_id}/imports/from-explorer")(pathParams);
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
   }));
@@ -117205,7 +117205,7 @@ async function $do97(client, request, options) {
     method: "POST",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     body,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 3e4
@@ -117269,7 +117269,7 @@ async function $do98(client, request, options) {
     })
   };
   const path6 = pathToFunc("/v1/observability/datasets/{dataset_id}/imports/from-file")(pathParams);
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
   }));
@@ -117291,7 +117291,7 @@ async function $do98(client, request, options) {
     method: "POST",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     body,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 3e4
@@ -117355,7 +117355,7 @@ async function $do99(client, request, options) {
     })
   };
   const path6 = pathToFunc("/v1/observability/datasets/{dataset_id}/imports/from-playground")(pathParams);
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
   }));
@@ -117377,7 +117377,7 @@ async function $do99(client, request, options) {
     method: "POST",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     body,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 3e4
@@ -117438,7 +117438,7 @@ async function $do100(client, request, options) {
     "page_size": payload?.page_size,
     "q": payload?.q
   });
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
   const secConfig = await extractSecurity(client._options.apiKey);
@@ -117459,7 +117459,7 @@ async function $do100(client, request, options) {
     method: "GET",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     query,
     body,
     userAgent: client._options.userAgent,
@@ -117526,7 +117526,7 @@ async function $do101(client, request, options) {
     "page": payload.page,
     "page_size": payload.page_size
   });
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
   const secConfig = await extractSecurity(client._options.apiKey);
@@ -117547,7 +117547,7 @@ async function $do101(client, request, options) {
     method: "GET",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     query,
     body,
     userAgent: client._options.userAgent,
@@ -117614,7 +117614,7 @@ async function $do102(client, request, options) {
     "page": payload.page,
     "page_size": payload.page_size
   });
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
   const secConfig = await extractSecurity(client._options.apiKey);
@@ -117635,7 +117635,7 @@ async function $do102(client, request, options) {
     method: "GET",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     query,
     body,
     userAgent: client._options.userAgent,
@@ -117700,7 +117700,7 @@ async function $do103(client, request, options) {
     })
   };
   const path6 = pathToFunc("/v1/observability/datasets/{dataset_id}")(pathParams);
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
   }));
@@ -117722,7 +117722,7 @@ async function $do103(client, request, options) {
     method: "PATCH",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     body,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 3e4
@@ -117778,7 +117778,7 @@ async function $do104(client, request, options) {
   const payload = parsed.value;
   const body = encodeJSON("body", payload, { explode: true });
   const path6 = pathToFunc("/v1/observability/dataset-records/bulk-delete")();
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
   }));
@@ -117800,7 +117800,7 @@ async function $do104(client, request, options) {
     method: "POST",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     body,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 3e4
@@ -117859,7 +117859,7 @@ async function $do105(client, request, options) {
     dataset_record_id: encodeSimple("dataset_record_id", payload.dataset_record_id, { explode: false, charEncoding: "percent" })
   };
   const path6 = pathToFunc("/v1/observability/dataset-records/{dataset_record_id}")(pathParams);
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
   const secConfig = await extractSecurity(client._options.apiKey);
@@ -117880,7 +117880,7 @@ async function $do105(client, request, options) {
     method: "DELETE",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     body,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 3e4
@@ -117939,7 +117939,7 @@ async function $do106(client, request, options) {
     dataset_record_id: encodeSimple("dataset_record_id", payload.dataset_record_id, { explode: false, charEncoding: "percent" })
   };
   const path6 = pathToFunc("/v1/observability/dataset-records/{dataset_record_id}")(pathParams);
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
   const secConfig = await extractSecurity(client._options.apiKey);
@@ -117960,7 +117960,7 @@ async function $do106(client, request, options) {
     method: "GET",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     body,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 3e4
@@ -118021,7 +118021,7 @@ async function $do107(client, request, options) {
     dataset_record_id: encodeSimple("dataset_record_id", payload.dataset_record_id, { explode: false, charEncoding: "percent" })
   };
   const path6 = pathToFunc("/v1/observability/dataset-records/{dataset_record_id}/live-judging")(pathParams);
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
   }));
@@ -118043,7 +118043,7 @@ async function $do107(client, request, options) {
     method: "POST",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     body,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 3e4
@@ -118104,7 +118104,7 @@ async function $do108(client, request, options) {
     dataset_record_id: encodeSimple("dataset_record_id", payload.dataset_record_id, { explode: false, charEncoding: "percent" })
   };
   const path6 = pathToFunc("/v1/observability/dataset-records/{dataset_record_id}/payload")(pathParams);
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
   }));
@@ -118126,7 +118126,7 @@ async function $do108(client, request, options) {
     method: "PUT",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     body,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 3e4
@@ -118185,7 +118185,7 @@ async function $do109(client, request, options) {
     dataset_record_id: encodeSimple("dataset_record_id", payload.dataset_record_id, { explode: false, charEncoding: "percent" })
   };
   const path6 = pathToFunc("/v1/observability/dataset-records/{dataset_record_id}/properties")(pathParams);
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
   }));
@@ -118207,7 +118207,7 @@ async function $do109(client, request, options) {
     method: "PUT",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     body,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 3e4
@@ -118437,7 +118437,7 @@ async function $do110(client, request, options) {
   const payload = parsed.value;
   const body = encodeJSON("body", payload, { explode: true });
   const path6 = pathToFunc("/v1/observability/judges")();
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
   }));
@@ -118459,7 +118459,7 @@ async function $do110(client, request, options) {
     method: "POST",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     body,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 3e4
@@ -118520,7 +118520,7 @@ async function $do111(client, request, options) {
     })
   };
   const path6 = pathToFunc("/v1/observability/judges/{judge_id}")(pathParams);
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
   const secConfig = await extractSecurity(client._options.apiKey);
@@ -118541,7 +118541,7 @@ async function $do111(client, request, options) {
     method: "DELETE",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     body,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 3e4
@@ -118603,7 +118603,7 @@ async function $do112(client, request, options) {
     })
   };
   const path6 = pathToFunc("/v1/observability/judges/{judge_id}")(pathParams);
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
   const secConfig = await extractSecurity(client._options.apiKey);
@@ -118624,7 +118624,7 @@ async function $do112(client, request, options) {
     method: "GET",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     body,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 3e4
@@ -118688,7 +118688,7 @@ async function $do113(client, request, options) {
     })
   };
   const path6 = pathToFunc("/v1/observability/judges/{judge_id}/live-judging")(pathParams);
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
   }));
@@ -118710,7 +118710,7 @@ async function $do113(client, request, options) {
     method: "POST",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     body,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 3e4
@@ -118773,7 +118773,7 @@ async function $do114(client, request, options) {
     "q": payload?.q,
     "type_filter": payload?.type_filter
   });
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
   const secConfig = await extractSecurity(client._options.apiKey);
@@ -118794,7 +118794,7 @@ async function $do114(client, request, options) {
     method: "GET",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     query,
     body,
     userAgent: client._options.userAgent,
@@ -118859,7 +118859,7 @@ async function $do115(client, request, options) {
     })
   };
   const path6 = pathToFunc("/v1/observability/judges/{judge_id}")(pathParams);
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
   }));
@@ -118881,7 +118881,7 @@ async function $do115(client, request, options) {
     method: "PUT",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     body,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 3e4
@@ -119014,7 +119014,7 @@ function betaRagIngestionPipelineConfigurationsList(client, options) {
 }
 async function $do116(client, options) {
   const path6 = pathToFunc("/v1/rag/ingestion_pipeline_configurations")();
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
   const secConfig = await extractSecurity(client._options.apiKey);
@@ -119035,7 +119035,7 @@ async function $do116(client, options) {
     method: "GET",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 3e4
   }, options);
@@ -119160,7 +119160,7 @@ async function $do117(client, request, options) {
   const payload = parsed.value;
   const body = encodeJSON("body", payload, { explode: true });
   const path6 = pathToFunc("/v1/chat/completions")();
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
   }));
@@ -119182,7 +119182,7 @@ async function $do117(client, request, options) {
     method: "POST",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     body,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 3e4
@@ -119237,7 +119237,7 @@ async function $do118(client, request, options) {
   const payload = parsed.value;
   const body = encodeJSON("body", payload, { explode: true });
   const path6 = pathToFunc("/v1/chat/completions#stream")();
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "text/event-stream"
   }));
@@ -119259,7 +119259,7 @@ async function $do118(client, request, options) {
     method: "POST",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     body,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 3e4
@@ -125073,7 +125073,7 @@ async function $do119(client, request, options) {
   const payload = parsed.value;
   const body = encodeJSON("body", payload, { explode: true });
   const path6 = pathToFunc("/v1/classifications")();
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
   }));
@@ -125095,7 +125095,7 @@ async function $do119(client, request, options) {
     method: "POST",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     body,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 3e4
@@ -125150,7 +125150,7 @@ async function $do120(client, request, options) {
   const payload = parsed.value;
   const body = encodeJSON("body", payload, { explode: true });
   const path6 = pathToFunc("/v1/chat/classifications")();
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
   }));
@@ -125172,7 +125172,7 @@ async function $do120(client, request, options) {
     method: "POST",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     body,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 3e4
@@ -125227,7 +125227,7 @@ async function $do121(client, request, options) {
   const payload = parsed.value;
   const body = encodeJSON("body", payload, { explode: true });
   const path6 = pathToFunc("/v1/moderations")();
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
   }));
@@ -125249,7 +125249,7 @@ async function $do121(client, request, options) {
     method: "POST",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     body,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 3e4
@@ -125304,7 +125304,7 @@ async function $do122(client, request, options) {
   const payload = parsed.value;
   const body = encodeJSON("body", payload, { explode: true });
   const path6 = pathToFunc("/v1/chat/moderations")();
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
   }));
@@ -125326,7 +125326,7 @@ async function $do122(client, request, options) {
     method: "POST",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     body,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 3e4
@@ -125420,7 +125420,7 @@ async function $do123(client, request, options) {
   const payload = parsed.value;
   const body = encodeJSON("body", payload, { explode: true });
   const path6 = pathToFunc("/v1/embeddings")();
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
   }));
@@ -125442,7 +125442,7 @@ async function $do123(client, request, options) {
     method: "POST",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     body,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 3e4
@@ -125531,7 +125531,7 @@ async function $do124(client, request, options) {
     "workflow_exec_id": payload?.workflow_exec_id,
     "workflow_name": payload?.workflow_name
   });
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     Accept: "text/event-stream",
     "last-event-id": encodeSimple("last-event-id", payload?.["last-event-id"], {
       explode: false,
@@ -125556,7 +125556,7 @@ async function $do124(client, request, options) {
     method: "GET",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     query,
     body,
     userAgent: client._options.userAgent,
@@ -125628,7 +125628,7 @@ async function $do125(client, request, options) {
     "workflow_exec_id": payload?.workflow_exec_id,
     "workflow_run_id": payload?.workflow_run_id
   });
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
   const secConfig = await extractSecurity(client._options.apiKey);
@@ -125649,7 +125649,7 @@ async function $do125(client, request, options) {
     method: "GET",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     query,
     body,
     userAgent: client._options.userAgent,
@@ -125737,7 +125737,7 @@ async function $do126(client, request, options) {
     })
   };
   const path6 = pathToFunc("/v1/files/{file_id}")(pathParams);
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
   const secConfig = await extractSecurity(client._options.apiKey);
@@ -125758,7 +125758,7 @@ async function $do126(client, request, options) {
     method: "DELETE",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     body,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 3e4
@@ -125816,7 +125816,7 @@ async function $do127(client, request, options) {
     })
   };
   const path6 = pathToFunc("/v1/files/{file_id}/content")(pathParams);
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     Accept: "application/octet-stream"
   }));
   const secConfig = await extractSecurity(client._options.apiKey);
@@ -125837,7 +125837,7 @@ async function $do127(client, request, options) {
     method: "GET",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     body,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 3e4
@@ -125898,7 +125898,7 @@ async function $do128(client, request, options) {
   const query = encodeFormQuery({
     "expiry": payload.expiry
   });
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
   const secConfig = await extractSecurity(client._options.apiKey);
@@ -125919,7 +125919,7 @@ async function $do128(client, request, options) {
     method: "GET",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     query,
     body,
     userAgent: client._options.userAgent,
@@ -125982,7 +125982,7 @@ async function $do129(client, request, options) {
     "search": payload?.search,
     "source": payload?.source
   });
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
   const secConfig = await extractSecurity(client._options.apiKey);
@@ -126003,7 +126003,7 @@ async function $do129(client, request, options) {
     method: "GET",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     query,
     body,
     userAgent: client._options.userAgent,
@@ -126062,7 +126062,7 @@ async function $do130(client, request, options) {
     })
   };
   const path6 = pathToFunc("/v1/files/{file_id}")(pathParams);
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
   const secConfig = await extractSecurity(client._options.apiKey);
@@ -126083,7 +126083,7 @@ async function $do130(client, request, options) {
     method: "GET",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     body,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 3e4
@@ -126157,7 +126157,7 @@ async function $do131(client, request, options) {
     appendForm(body, "visibility", payload.visibility);
   }
   const path6 = pathToFunc("/v1/files")();
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
   const secConfig = await extractSecurity(client._options.apiKey);
@@ -126178,7 +126178,7 @@ async function $do131(client, request, options) {
     method: "POST",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     body,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 3e4
@@ -126305,7 +126305,7 @@ async function $do132(client, request, options) {
   const payload = parsed.value;
   const body = encodeJSON("body", payload, { explode: true });
   const path6 = pathToFunc("/v1/fim/completions")();
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
   }));
@@ -126327,7 +126327,7 @@ async function $do132(client, request, options) {
     method: "POST",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     body,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 3e4
@@ -126382,7 +126382,7 @@ async function $do133(client, request, options) {
   const payload = parsed.value;
   const body = encodeJSON("body", payload, { explode: true });
   const path6 = pathToFunc("/v1/fim/completions#stream")();
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "text/event-stream"
   }));
@@ -126404,7 +126404,7 @@ async function $do133(client, request, options) {
     method: "POST",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     body,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 3e4
@@ -126508,7 +126508,7 @@ async function $do134(client, request, options) {
     })
   };
   const path6 = pathToFunc("/v1/fine_tuning/jobs/{job_id}/cancel")(pathParams);
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
   const secConfig = await extractSecurity(client._options.apiKey);
@@ -126529,7 +126529,7 @@ async function $do134(client, request, options) {
     method: "POST",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     body,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 3e4
@@ -126580,7 +126580,7 @@ async function $do135(client, request, options) {
   const payload = parsed.value;
   const body = encodeJSON("body", payload, { explode: true });
   const path6 = pathToFunc("/v1/fine_tuning/jobs")();
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
   }));
@@ -126602,7 +126602,7 @@ async function $do135(client, request, options) {
     method: "POST",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     body,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 3e4
@@ -126660,7 +126660,7 @@ async function $do136(client, request, options) {
     })
   };
   const path6 = pathToFunc("/v1/fine_tuning/jobs/{job_id}")(pathParams);
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
   const secConfig = await extractSecurity(client._options.apiKey);
@@ -126681,7 +126681,7 @@ async function $do136(client, request, options) {
     method: "GET",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     body,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 3e4
@@ -126744,7 +126744,7 @@ async function $do137(client, request, options) {
     "wandb_name": payload?.wandb_name,
     "wandb_project": payload?.wandb_project
   });
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
   const secConfig = await extractSecurity(client._options.apiKey);
@@ -126765,7 +126765,7 @@ async function $do137(client, request, options) {
     method: "GET",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     query,
     body,
     userAgent: client._options.userAgent,
@@ -126824,7 +126824,7 @@ async function $do138(client, request, options) {
     })
   };
   const path6 = pathToFunc("/v1/fine_tuning/jobs/{job_id}/start")(pathParams);
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
   const secConfig = await extractSecurity(client._options.apiKey);
@@ -126845,7 +126845,7 @@ async function $do138(client, request, options) {
     method: "POST",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     body,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 3e4
@@ -126978,7 +126978,7 @@ async function $do139(client, request, options) {
     })
   };
   const path6 = pathToFunc("/v1/fine_tuning/models/{model_id}/archive")(pathParams);
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
   const secConfig = await extractSecurity(client._options.apiKey);
@@ -126999,7 +126999,7 @@ async function $do139(client, request, options) {
     method: "POST",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     body,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 3e4
@@ -127057,7 +127057,7 @@ async function $do140(client, request, options) {
     })
   };
   const path6 = pathToFunc("/v1/models/{model_id}")(pathParams);
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
   const secConfig = await extractSecurity(client._options.apiKey);
@@ -127078,7 +127078,7 @@ async function $do140(client, request, options) {
     method: "DELETE",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     body,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 3e4
@@ -127138,7 +127138,7 @@ async function $do141(client, request, options) {
     "model": payload?.model,
     "provider": payload?.provider
   });
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
   const secConfig = await extractSecurity(client._options.apiKey);
@@ -127159,7 +127159,7 @@ async function $do141(client, request, options) {
     method: "GET",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     query,
     body,
     userAgent: client._options.userAgent,
@@ -127222,7 +127222,7 @@ async function $do142(client, request, options) {
     })
   };
   const path6 = pathToFunc("/v1/models/{model_id}")(pathParams);
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
   const secConfig = await extractSecurity(client._options.apiKey);
@@ -127243,7 +127243,7 @@ async function $do142(client, request, options) {
     method: "GET",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     body,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 3e4
@@ -127304,7 +127304,7 @@ async function $do143(client, request, options) {
     })
   };
   const path6 = pathToFunc("/v1/fine_tuning/models/{model_id}/archive")(pathParams);
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
   const secConfig = await extractSecurity(client._options.apiKey);
@@ -127325,7 +127325,7 @@ async function $do143(client, request, options) {
     method: "DELETE",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     body,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 3e4
@@ -127385,7 +127385,7 @@ async function $do144(client, request, options) {
     })
   };
   const path6 = pathToFunc("/v1/fine_tuning/models/{model_id}")(pathParams);
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
   }));
@@ -127407,7 +127407,7 @@ async function $do144(client, request, options) {
     method: "PATCH",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     body,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 3e4
@@ -127529,7 +127529,7 @@ async function $do145(client, request, options) {
   const payload = parsed.value;
   const body = encodeJSON("body", payload, { explode: true });
   const path6 = pathToFunc("/v1/ocr")();
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
   }));
@@ -127551,7 +127551,7 @@ async function $do145(client, request, options) {
     method: "POST",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     body,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 3e4
@@ -127627,7 +127627,7 @@ async function $do146(client, request, options) {
     workflow_identifier: encodeSimple("workflow_identifier", payload.workflow_identifier, { explode: false, charEncoding: "percent" })
   };
   const path6 = pathToFunc("/v1/workflows/{workflow_identifier}/archive")(pathParams);
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
   const secConfig = await extractSecurity(client._options.apiKey);
@@ -127648,7 +127648,7 @@ async function $do146(client, request, options) {
     method: "PUT",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     body,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 3e4
@@ -127709,7 +127709,7 @@ async function $do147(client, request, options) {
     workflow_identifier: encodeSimple("workflow_identifier", payload.workflow_identifier, { explode: false, charEncoding: "percent" })
   };
   const path6 = pathToFunc("/v1/workflows/{workflow_identifier}/execute")(pathParams);
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
   }));
@@ -127731,7 +127731,7 @@ async function $do147(client, request, options) {
     method: "POST",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     body,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 3e4
@@ -127791,7 +127791,7 @@ async function $do148(client, request, options) {
     workflow_registration_id: encodeSimple("workflow_registration_id", payload.workflow_registration_id, { explode: false, charEncoding: "percent" })
   };
   const path6 = pathToFunc("/v1/workflows/registrations/{workflow_registration_id}/execute")(pathParams);
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
   }));
@@ -127813,7 +127813,7 @@ async function $do148(client, request, options) {
     method: "POST",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     body,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 3e4
@@ -127871,7 +127871,7 @@ async function $do149(client, request, options) {
     workflow_identifier: encodeSimple("workflow_identifier", payload.workflow_identifier, { explode: false, charEncoding: "percent" })
   };
   const path6 = pathToFunc("/v1/workflows/{workflow_identifier}")(pathParams);
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
   const secConfig = await extractSecurity(client._options.apiKey);
@@ -127892,7 +127892,7 @@ async function $do149(client, request, options) {
     method: "GET",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     body,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 3e4
@@ -127955,7 +127955,7 @@ async function $do150(client, request, options) {
     "include_shared": payload.include_shared,
     "with_workflow": payload.with_workflow
   });
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
   const secConfig = await extractSecurity(client._options.apiKey);
@@ -127976,7 +127976,7 @@ async function $do150(client, request, options) {
     method: "GET",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     query,
     body,
     userAgent: client._options.userAgent,
@@ -128045,7 +128045,7 @@ async function $do151(client, request, options) {
     "workflow_id": payload?.workflow_id,
     "workflow_search": payload?.workflow_search
   });
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
   const secConfig = await extractSecurity(client._options.apiKey);
@@ -128066,7 +128066,7 @@ async function $do151(client, request, options) {
     method: "GET",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     query,
     body,
     userAgent: client._options.userAgent,
@@ -128202,7 +128202,7 @@ async function $do152(client, request, options) {
     "include_shared": payload?.include_shared,
     "limit": payload?.limit
   });
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
   const secConfig = await extractSecurity(client._options.apiKey);
@@ -128223,7 +128223,7 @@ async function $do152(client, request, options) {
     method: "GET",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     query,
     body,
     userAgent: client._options.userAgent,
@@ -128317,7 +128317,7 @@ async function $do153(client, request, options) {
     workflow_identifier: encodeSimple("workflow_identifier", payload.workflow_identifier, { explode: false, charEncoding: "percent" })
   };
   const path6 = pathToFunc("/v1/workflows/{workflow_identifier}/unarchive")(pathParams);
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
   const secConfig = await extractSecurity(client._options.apiKey);
@@ -128338,7 +128338,7 @@ async function $do153(client, request, options) {
     method: "PUT",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     body,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 3e4
@@ -128399,7 +128399,7 @@ async function $do154(client, request, options) {
     workflow_identifier: encodeSimple("workflow_identifier", payload.workflow_identifier, { explode: false, charEncoding: "percent" })
   };
   const path6 = pathToFunc("/v1/workflows/{workflow_identifier}")(pathParams);
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
   }));
@@ -128421,7 +128421,7 @@ async function $do154(client, request, options) {
     method: "PUT",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     body,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 3e4
@@ -128483,7 +128483,7 @@ async function $do155(client, request, options) {
     })
   };
   const path6 = pathToFunc("/v1/workflows/deployments/{name}")(pathParams);
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
   const secConfig = await extractSecurity(client._options.apiKey);
@@ -128504,7 +128504,7 @@ async function $do155(client, request, options) {
     method: "GET",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     body,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 3e4
@@ -128564,7 +128564,7 @@ async function $do156(client, request, options) {
     "active_only": payload?.active_only,
     "workflow_name": payload?.workflow_name
   });
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
   const secConfig = await extractSecurity(client._options.apiKey);
@@ -128585,7 +128585,7 @@ async function $do156(client, request, options) {
     method: "GET",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     query,
     body,
     userAgent: client._options.userAgent,
@@ -128667,7 +128667,7 @@ async function $do157(client, request, options) {
   const payload = parsed.value;
   const body = encodeJSON("body", payload, { explode: true });
   const path6 = pathToFunc("/v1/workflows/executions/cancel")();
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
   }));
@@ -128689,7 +128689,7 @@ async function $do157(client, request, options) {
     method: "POST",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     body,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 3e4
@@ -128744,7 +128744,7 @@ async function $do158(client, request, options) {
   const payload = parsed.value;
   const body = encodeJSON("body", payload, { explode: true });
   const path6 = pathToFunc("/v1/workflows/executions/terminate")();
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
   }));
@@ -128766,7 +128766,7 @@ async function $do158(client, request, options) {
     method: "POST",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     body,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 3e4
@@ -128827,7 +128827,7 @@ async function $do159(client, request, options) {
     })
   };
   const path6 = pathToFunc("/v1/workflows/executions/{execution_id}/cancel")(pathParams);
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
   const secConfig = await extractSecurity(client._options.apiKey);
@@ -128848,7 +128848,7 @@ async function $do159(client, request, options) {
     method: "POST",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     body,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 3e4
@@ -128910,7 +128910,7 @@ async function $do160(client, request, options) {
     })
   };
   const path6 = pathToFunc("/v1/workflows/executions/{execution_id}")(pathParams);
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
   const secConfig = await extractSecurity(client._options.apiKey);
@@ -128931,7 +128931,7 @@ async function $do160(client, request, options) {
     method: "GET",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     body,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 3e4
@@ -128996,7 +128996,7 @@ async function $do161(client, request, options) {
   const query = encodeFormQuery({
     "decode_payloads": payload.decode_payloads
   });
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
   const secConfig = await extractSecurity(client._options.apiKey);
@@ -129017,7 +129017,7 @@ async function $do161(client, request, options) {
     method: "GET",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     query,
     body,
     userAgent: client._options.userAgent,
@@ -129084,7 +129084,7 @@ async function $do162(client, request, options) {
     "include_internal_events": payload.include_internal_events,
     "merge_same_id_events": payload.merge_same_id_events
   });
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
   const secConfig = await extractSecurity(client._options.apiKey);
@@ -129105,7 +129105,7 @@ async function $do162(client, request, options) {
     method: "GET",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     query,
     body,
     userAgent: client._options.userAgent,
@@ -129168,7 +129168,7 @@ async function $do163(client, request, options) {
     })
   };
   const path6 = pathToFunc("/v1/workflows/executions/{execution_id}/trace/otel")(pathParams);
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
   const secConfig = await extractSecurity(client._options.apiKey);
@@ -129189,7 +129189,7 @@ async function $do163(client, request, options) {
     method: "GET",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     body,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 3e4
@@ -129251,7 +129251,7 @@ async function $do164(client, request, options) {
     })
   };
   const path6 = pathToFunc("/v1/workflows/executions/{execution_id}/trace/summary")(pathParams);
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
   const secConfig = await extractSecurity(client._options.apiKey);
@@ -129272,7 +129272,7 @@ async function $do164(client, request, options) {
     method: "GET",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     body,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 3e4
@@ -129336,7 +129336,7 @@ async function $do165(client, request, options) {
     })
   };
   const path6 = pathToFunc("/v1/workflows/executions/{execution_id}/queries")(pathParams);
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
   }));
@@ -129358,7 +129358,7 @@ async function $do165(client, request, options) {
     method: "POST",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     body,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 3e4
@@ -129422,7 +129422,7 @@ async function $do166(client, request, options) {
     })
   };
   const path6 = pathToFunc("/v1/workflows/executions/{execution_id}/reset")(pathParams);
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
   }));
@@ -129444,7 +129444,7 @@ async function $do166(client, request, options) {
     method: "POST",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     body,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 3e4
@@ -129508,7 +129508,7 @@ async function $do167(client, request, options) {
     })
   };
   const path6 = pathToFunc("/v1/workflows/executions/{execution_id}/signals")(pathParams);
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
   }));
@@ -129530,7 +129530,7 @@ async function $do167(client, request, options) {
     method: "POST",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     body,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 3e4
@@ -129596,7 +129596,7 @@ async function $do168(client, request, options) {
     "event_source": payload.event_source,
     "last_event_id": payload.last_event_id
   });
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     Accept: "text/event-stream"
   }));
   const secConfig = await extractSecurity(client._options.apiKey);
@@ -129617,7 +129617,7 @@ async function $do168(client, request, options) {
     method: "GET",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     query,
     body,
     userAgent: client._options.userAgent,
@@ -129688,7 +129688,7 @@ async function $do169(client, request, options) {
     })
   };
   const path6 = pathToFunc("/v1/workflows/executions/{execution_id}/terminate")(pathParams);
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
   const secConfig = await extractSecurity(client._options.apiKey);
@@ -129709,7 +129709,7 @@ async function $do169(client, request, options) {
     method: "POST",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     body,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 3e4
@@ -129773,7 +129773,7 @@ async function $do170(client, request, options) {
     })
   };
   const path6 = pathToFunc("/v1/workflows/executions/{execution_id}/updates")(pathParams);
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
   }));
@@ -129795,7 +129795,7 @@ async function $do170(client, request, options) {
     method: "POST",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     body,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 3e4
@@ -129970,7 +129970,7 @@ async function $do171(client, request, options) {
     "end_time": payload.end_time,
     "start_time": payload.start_time
   });
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
   const secConfig = await extractSecurity(client._options.apiKey);
@@ -129991,7 +129991,7 @@ async function $do171(client, request, options) {
     method: "GET",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     query,
     body,
     userAgent: client._options.userAgent,
@@ -130094,7 +130094,7 @@ async function $do172(client, request, options) {
     })
   };
   const path6 = pathToFunc("/v1/workflows/runs/{run_id}")(pathParams);
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
   const secConfig = await extractSecurity(client._options.apiKey);
@@ -130115,7 +130115,7 @@ async function $do172(client, request, options) {
     method: "GET",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     body,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 3e4
@@ -130180,7 +130180,7 @@ async function $do173(client, request, options) {
   const query = encodeFormQuery({
     "decode_payloads": payload.decode_payloads
   });
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
   const secConfig = await extractSecurity(client._options.apiKey);
@@ -130201,7 +130201,7 @@ async function $do173(client, request, options) {
     method: "GET",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     query,
     body,
     userAgent: client._options.userAgent,
@@ -130266,7 +130266,7 @@ async function $do174(client, request, options) {
     "user_id": payload?.user_id,
     "workflow_identifier": payload?.workflow_identifier
   });
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
   const secConfig = await extractSecurity(client._options.apiKey);
@@ -130287,7 +130287,7 @@ async function $do174(client, request, options) {
     method: "GET",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     query,
     body,
     userAgent: client._options.userAgent,
@@ -130405,7 +130405,7 @@ function workflowsSchedulesGetSchedules(client, options) {
 }
 async function $do175(client, options) {
   const path6 = pathToFunc("/v1/workflows/schedules")();
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
   const secConfig = await extractSecurity(client._options.apiKey);
@@ -130426,7 +130426,7 @@ async function $do175(client, options) {
     method: "GET",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 3e4
   }, options);
@@ -130474,7 +130474,7 @@ async function $do176(client, request, options) {
   const payload = parsed.value;
   const body = encodeJSON("body", payload, { explode: true });
   const path6 = pathToFunc("/v1/workflows/schedules")();
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
   }));
@@ -130496,7 +130496,7 @@ async function $do176(client, request, options) {
     method: "POST",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     body,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 3e4
@@ -130557,7 +130557,7 @@ async function $do177(client, request, options) {
     })
   };
   const path6 = pathToFunc("/v1/workflows/schedules/{schedule_id}")(pathParams);
-  const headers2 = new Headers(compactMap({
+  const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
   const secConfig = await extractSecurity(client._options.apiKey);
@@ -130578,7 +130578,7 @@ async function $do177(client, request, options) {
     method: "DELETE",
     baseURL: options?.serverURL,
     path: path6,
-    headers: headers2,
+    headers,
     body,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 3e4
@@ -130961,16 +130961,16 @@ function buildRequestOptions(model, options) {
   };
   if (options?.signal)
     requestOptions.signal = options.signal;
-  const headers2 = {};
+  const headers = {};
   if (model.headers)
-    Object.assign(headers2, model.headers);
+    Object.assign(headers, model.headers);
   if (options?.headers)
-    Object.assign(headers2, options.headers);
-  if (options?.sessionId && !headers2["x-affinity"]) {
-    headers2["x-affinity"] = options.sessionId;
+    Object.assign(headers, options.headers);
+  if (options?.sessionId && !headers["x-affinity"]) {
+    headers["x-affinity"] = options.sessionId;
   }
-  if (Object.keys(headers2).length > 0) {
-    requestOptions.headers = headers2;
+  if (Object.keys(headers).length > 0) {
+    requestOptions.headers = headers;
   }
   return requestOptions;
 }
@@ -131586,15 +131586,15 @@ function isRetryableError(status, errorText) {
   }
   return /rate.?limit|overloaded|service.?unavailable|upstream.?connect|connection.?refused/i.test(errorText);
 }
-function getRetryAfterDelayMs(headers2) {
-  const retryAfterMs = headers2.get("retry-after-ms");
+function getRetryAfterDelayMs(headers) {
+  const retryAfterMs = headers.get("retry-after-ms");
   if (retryAfterMs !== null) {
     const millis = Number(retryAfterMs);
     if (Number.isFinite(millis)) {
       return Math.max(0, millis);
     }
   }
-  const retryAfter = headers2.get("retry-after");
+  const retryAfter = headers.get("retry-after");
   if (!retryAfter) {
     return void 0;
   }
@@ -131944,12 +131944,12 @@ function scheduleSessionWebSocketExpiry(sessionId, entry) {
     websocketSessionCache.delete(sessionId);
   }, SESSION_WEBSOCKET_CACHE_TTL_MS);
 }
-async function connectWebSocket(url2, headers2, signal, connectTimeoutMs = DEFAULT_WEBSOCKET_CONNECT_TIMEOUT_MS, env2) {
+async function connectWebSocket(url2, headers, signal, connectTimeoutMs = DEFAULT_WEBSOCKET_CONNECT_TIMEOUT_MS, env2) {
   const WebSocketCtor = await getWebSocketConstructor(env2);
   if (!WebSocketCtor) {
     throw new Error("WebSocket transport is not available in this runtime");
   }
-  const wsHeaders = headersToRecord(headers2);
+  const wsHeaders = headersToRecord(headers);
   delete wsHeaders["OpenAI-Beta"];
   return new Promise((resolve2, reject) => {
     let settled = false;
@@ -132011,9 +132011,9 @@ async function connectWebSocket(url2, headers2, signal, connectTimeoutMs = DEFAU
     }
   });
 }
-async function acquireWebSocket(url2, headers2, sessionId, signal, connectTimeoutMs, env2) {
+async function acquireWebSocket(url2, headers, sessionId, signal, connectTimeoutMs, env2) {
   if (!sessionId) {
-    const socket2 = await connectWebSocket(url2, headers2, signal, connectTimeoutMs, env2);
+    const socket2 = await connectWebSocket(url2, headers, signal, connectTimeoutMs, env2);
     return {
       socket: socket2,
       reused: false,
@@ -132044,7 +132044,7 @@ async function acquireWebSocket(url2, headers2, sessionId, signal, connectTimeou
       };
     }
     if (cached2.busy) {
-      const socket2 = await connectWebSocket(url2, headers2, signal, connectTimeoutMs, env2);
+      const socket2 = await connectWebSocket(url2, headers, signal, connectTimeoutMs, env2);
       return {
         socket: socket2,
         reused: false,
@@ -132058,7 +132058,7 @@ async function acquireWebSocket(url2, headers2, sessionId, signal, connectTimeou
       websocketSessionCache.delete(sessionId);
     }
   }
-  const socket = await connectWebSocket(url2, headers2, signal, connectTimeoutMs, env2);
+  const socket = await connectWebSocket(url2, headers, signal, connectTimeoutMs, env2);
   const entry = { socket, busy: true };
   websocketSessionCache.set(sessionId, entry);
   return {
@@ -132295,8 +132295,8 @@ async function* startWebSocketOutputOnFirstEvent(events, output, stream2, onStar
     yield event;
   }
 }
-async function processWebSocketStream(url2, body, headers2, output, stream2, model, onStart, idleTimeoutMs, websocketConnectTimeoutMs, options) {
-  const { socket, entry, reused, release } = await acquireWebSocket(url2, headers2, options?.sessionId, options?.signal, websocketConnectTimeoutMs, options?.env);
+async function processWebSocketStream(url2, body, headers, output, stream2, model, onStart, idleTimeoutMs, websocketConnectTimeoutMs, options) {
+  const { socket, entry, reused, release } = await acquireWebSocket(url2, headers, options?.sessionId, options?.signal, websocketConnectTimeoutMs, options?.env);
   let keepConnection = true;
   const useCachedContext = options?.transport === "websocket-cached" || options?.transport === "auto";
   const fullBody = body;
@@ -132394,38 +132394,38 @@ function createCodexRequestId() {
   return `codex_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
 }
 function buildBaseCodexHeaders(initHeaders, additionalHeaders, accountId, token) {
-  const headers2 = new Headers(initHeaders);
+  const headers = new Headers(initHeaders);
   for (const [key, value] of Object.entries(additionalHeaders || {})) {
-    headers2.set(key, value);
+    headers.set(key, value);
   }
-  headers2.set("Authorization", `Bearer ${token}`);
-  headers2.set("chatgpt-account-id", accountId);
-  headers2.set("originator", "pi");
+  headers.set("Authorization", `Bearer ${token}`);
+  headers.set("chatgpt-account-id", accountId);
+  headers.set("originator", "pi");
   const userAgent = _os ? `pi (${_os.platform()} ${_os.release()}; ${_os.arch()})` : "pi (browser)";
-  headers2.set("User-Agent", userAgent);
-  return headers2;
+  headers.set("User-Agent", userAgent);
+  return headers;
 }
 function buildSSEHeaders(initHeaders, additionalHeaders, accountId, token, sessionId) {
-  const headers2 = buildBaseCodexHeaders(initHeaders, additionalHeaders, accountId, token);
-  headers2.set("OpenAI-Beta", "responses=experimental");
-  headers2.set("accept", "text/event-stream");
-  headers2.set("content-type", "application/json");
+  const headers = buildBaseCodexHeaders(initHeaders, additionalHeaders, accountId, token);
+  headers.set("OpenAI-Beta", "responses=experimental");
+  headers.set("accept", "text/event-stream");
+  headers.set("content-type", "application/json");
   if (sessionId) {
-    headers2.set("session-id", sessionId);
-    headers2.set("x-client-request-id", sessionId);
+    headers.set("session-id", sessionId);
+    headers.set("x-client-request-id", sessionId);
   }
-  return headers2;
+  return headers;
 }
 function buildWebSocketHeaders(initHeaders, additionalHeaders, accountId, token, requestId) {
-  const headers2 = buildBaseCodexHeaders(initHeaders, additionalHeaders, accountId, token);
-  headers2.delete("accept");
-  headers2.delete("content-type");
-  headers2.delete("OpenAI-Beta");
-  headers2.delete("openai-beta");
-  headers2.set("OpenAI-Beta", OPENAI_BETA_RESPONSES_WEBSOCKETS);
-  headers2.set("x-client-request-id", requestId);
-  headers2.set("session-id", requestId);
-  return headers2;
+  const headers = buildBaseCodexHeaders(initHeaders, additionalHeaders, accountId, token);
+  headers.delete("accept");
+  headers.delete("content-type");
+  headers.delete("OpenAI-Beta");
+  headers.delete("openai-beta");
+  headers.set("OpenAI-Beta", OPENAI_BETA_RESPONSES_WEBSOCKETS);
+  headers.set("x-client-request-id", requestId);
+  headers.set("session-id", requestId);
+  return headers;
 }
 var __rewriteRelativeImportExtension2, _os, dynamicImport2, NODE_OS_SPECIFIER2, DEFAULT_CODEX_BASE_URL, JWT_CLAIM_PATH, DEFAULT_MAX_RETRIES, BASE_DELAY_MS, DEFAULT_MAX_RETRY_DELAY_MS, DEFAULT_SSE_HEADER_TIMEOUT_MS, DEFAULT_WEBSOCKET_CONNECT_TIMEOUT_MS, CODEX_TOOL_CALL_PROVIDERS, WEBSOCKET_MESSAGE_TOO_BIG_CLOSE_CODE, CODEX_RESPONSE_STATUSES, streamOpenAICodexResponses, streamSimpleOpenAICodexResponses, CodexApiError, CodexProtocolError, OPENAI_BETA_RESPONSES_WEBSOCKETS, SESSION_WEBSOCKET_CACHE_TTL_MS, websocketSessionCache, websocketDebugStats, websocketSseFallbackSessions, _cachedWebsocket, WebSocketCloseError;
 var init_openai_codex_responses = __esm({
@@ -132728,28 +132728,28 @@ function resolveCacheRetention2(cacheRetention, env2) {
   return "short";
 }
 function createClient6(model, context, apiKey, optionsHeaders, sessionId, compat = getCompat(model), env2) {
-  const headers2 = { ...model.headers };
+  const headers = { ...model.headers };
   if (model.provider === "github-copilot") {
     const hasImages = hasCopilotVisionInput(context.messages);
     const copilotHeaders = buildCopilotDynamicHeaders({
       messages: context.messages,
       hasImages
     });
-    Object.assign(headers2, copilotHeaders);
+    Object.assign(headers, copilotHeaders);
   }
   if (sessionId && compat.sendSessionAffinityHeaders) {
-    headers2.session_id = sessionId;
-    headers2["x-client-request-id"] = sessionId;
-    headers2["x-session-affinity"] = sessionId;
+    headers.session_id = sessionId;
+    headers["x-client-request-id"] = sessionId;
+    headers["x-session-affinity"] = sessionId;
   }
   if (optionsHeaders) {
-    Object.assign(headers2, optionsHeaders);
+    Object.assign(headers, optionsHeaders);
   }
   const defaultHeaders = model.provider === "cloudflare-ai-gateway" ? {
-    ...headers2,
-    Authorization: headers2.Authorization ?? null,
+    ...headers,
+    Authorization: headers.Authorization ?? null,
     "cf-aig-authorization": `Bearer ${apiKey}`
-  } : headers2;
+  } : headers;
   return new OpenAI({
     apiKey,
     baseURL: isCloudflareProvider(model.provider) ? resolveCloudflareBaseUrl(model, env2) : model.baseUrl,
@@ -133578,29 +133578,29 @@ function formatOpenAIResponsesError(error51) {
 }
 function createClient7(model, context, apiKey, optionsHeaders, sessionId, env2) {
   const compat = getCompat2(model);
-  const headers2 = { ...model.headers };
+  const headers = { ...model.headers };
   if (model.provider === "github-copilot") {
     const hasImages = hasCopilotVisionInput(context.messages);
     const copilotHeaders = buildCopilotDynamicHeaders({
       messages: context.messages,
       hasImages
     });
-    Object.assign(headers2, copilotHeaders);
+    Object.assign(headers, copilotHeaders);
   }
   if (sessionId) {
     if (compat.sendSessionIdHeader) {
-      headers2.session_id = sessionId;
+      headers.session_id = sessionId;
     }
-    headers2["x-client-request-id"] = sessionId;
+    headers["x-client-request-id"] = sessionId;
   }
   if (optionsHeaders) {
-    Object.assign(headers2, optionsHeaders);
+    Object.assign(headers, optionsHeaders);
   }
   const defaultHeaders = model.provider === "cloudflare-ai-gateway" ? {
-    ...headers2,
-    Authorization: headers2.Authorization ?? null,
+    ...headers,
+    Authorization: headers.Authorization ?? null,
     "cf-aig-authorization": `Bearer ${apiKey}`
-  } : headers2;
+  } : headers;
   return new OpenAI({
     apiKey,
     baseURL: isCloudflareProvider(model.provider) ? resolveCloudflareBaseUrl(model, env2) : model.baseUrl,
@@ -213838,10 +213838,6 @@ var init_expansion_R25BK4W3 = __esm({
 // src/index.ts
 import { readFileSync } from "node:fs";
 
-// src/github.ts
-import { exec as execCb, execFile as execFileCb } from "node:child_process";
-import { promisify } from "node:util";
-
 // node_modules/.pnpm/valibot@1.4.1_typescript@5.9.3/node_modules/valibot/dist/index.mjs
 var store$4;
 var DEFAULT_CONFIG = {
@@ -214224,6 +214220,31 @@ function nullable(wrapped, default_) {
   };
 }
 // @__NO_SIDE_EFFECTS__
+function nullish(wrapped, default_) {
+  return {
+    kind: "schema",
+    type: "nullish",
+    reference: nullish,
+    expects: `(${wrapped.expects} | null | undefined)`,
+    async: false,
+    wrapped,
+    default: default_,
+    get "~standard"() {
+      return /* @__PURE__ */ _getStandardProps(this);
+    },
+    "~run"(dataset, config$1) {
+      if (dataset.value === null || dataset.value === void 0) {
+        if (this.default !== void 0) dataset.value = /* @__PURE__ */ getDefault(this, dataset, config$1);
+        if (dataset.value === null || dataset.value === void 0) {
+          dataset.typed = true;
+          return dataset;
+        }
+      }
+      return this.wrapped["~run"](dataset, config$1);
+    }
+  };
+}
+// @__NO_SIDE_EFFECTS__
 function number(message$1) {
   return {
     kind: "schema",
@@ -214538,16 +214559,7 @@ function safeParse(schema, input, config$1) {
   };
 }
 
-// src/github.ts
-var execAsync = promisify(execCb);
-var execFileAsync = promisify(execFileCb);
-function headers(token) {
-  return {
-    Authorization: `token ${token}`,
-    "Content-Type": "application/json",
-    Accept: "application/vnd.github+json"
-  };
-}
+// src/forge/types.ts
 var issueDetailsSchema = object({
   title: string(),
   body: string(),
@@ -214570,188 +214582,422 @@ var repoLabelSchema = object({
   name: string(),
   description: nullable(string())
 });
-async function fetchIssueDetails(repo, issueNumber, token) {
-  const [issueRes, commentsRes] = await Promise.all([
-    fetch(`https://api.github.com/repos/${repo}/issues/${issueNumber}`, {
-      headers: headers(token)
-    }),
-    fetch(`https://api.github.com/repos/${repo}/issues/${issueNumber}/comments?per_page=100`, {
-      headers: headers(token)
-    })
-  ]);
-  if (!issueRes.ok) {
-    throw new Error(
-      `Failed to fetch issue ${issueNumber} (HTTP ${issueRes.status}): ${await issueRes.text()}`
-    );
+var DEFAULT_LABEL_PATTERNS = {
+  priority: /^- P\d/,
+  package: /^pkg:/
+};
+
+// src/forge/client.ts
+var BaseForge = class {
+  kind;
+  repo;
+  serverUrl;
+  apiUrl;
+  labelPatterns;
+  constructor(config2) {
+    this.kind = config2.kind;
+    this.repo = config2.repo;
+    this.serverUrl = config2.serverUrl.replace(/\/+$/, "");
+    this.apiUrl = config2.apiUrl.replace(/\/+$/, "");
+    this.labelPatterns = config2.labelPatterns ?? DEFAULT_LABEL_PATTERNS;
   }
-  if (!commentsRes.ok) {
-    throw new Error(
-      `Failed to fetch comments for issue ${issueNumber} (HTTP ${commentsRes.status}): ${await commentsRes.text()}`
-    );
+  headers(token) {
+    return {
+      Authorization: `token ${token}`,
+      "Content-Type": "application/json",
+      Accept: "application/json"
+    };
   }
-  const issue2 = await issueRes.json();
-  const rawComments = await commentsRes.json();
-  return parse(issueDetailsSchema, {
-    title: issue2.title,
-    body: issue2.body ?? "",
-    author: { login: issue2.user?.login },
-    labels: issue2.labels,
-    createdAt: issue2.created_at,
-    state: issue2.state,
-    number: issue2.number,
-    url: issue2.html_url,
-    comments: rawComments.map((c14) => ({
-      author: { login: c14.user?.login },
-      authorAssociation: c14.author_association,
-      body: c14.body,
-      createdAt: c14.created_at
-    }))
-  });
-}
-async function fetchRepoLabels(repo, token) {
-  const allLabels = [];
-  let page = 1;
-  while (true) {
-    const res = await fetch(
-      `https://api.github.com/repos/${repo}/labels?per_page=100&page=${page}`,
-      { headers: headers(token) }
-    );
+  /** Perform a request and throw a descriptive error on any non-ok status. */
+  async request(path6, token, init) {
+    const { description: description2, ...rest } = init;
+    const res = await fetch(`${this.apiUrl}${path6}`, {
+      ...rest,
+      headers: { ...this.headers(token), ...rest.headers }
+    });
     if (!res.ok) {
-      throw new Error(`Failed to fetch labels (HTTP ${res.status}): ${await res.text()}`);
+      throw new Error(`${description2} (HTTP ${res.status}): ${await res.text()}`);
     }
-    const batch = parse(array(repoLabelSchema), await res.json());
-    allLabels.push(...batch);
-    if (batch.length < 100) break;
-    page++;
+    return res;
   }
+  /** Like `request`, but returns null instead of throwing on the given statuses. */
+  async requestTolerating(path6, token, tolerated, init) {
+    const { description: description2, ...rest } = init;
+    const res = await fetch(`${this.apiUrl}${path6}`, {
+      ...rest,
+      headers: { ...this.headers(token), ...rest.headers }
+    });
+    if (tolerated.includes(res.status)) return null;
+    if (!res.ok) {
+      throw new Error(`${description2} (HTTP ${res.status}): ${await res.text()}`);
+    }
+    return res;
+  }
+  splitLabels(all) {
+    return {
+      priorityLabels: all.filter((l10) => this.labelPatterns.priority.test(l10.name)),
+      packageLabels: all.filter((l10) => this.labelPatterns.package.test(l10.name))
+    };
+  }
+  parseIssue(raw) {
+    const { issue: issue2, comments } = raw;
+    return parse(issueDetailsSchema, {
+      title: issue2.title,
+      body: issue2.body ?? "",
+      author: { login: issue2.user?.login },
+      labels: issue2.labels,
+      createdAt: issue2.created_at,
+      state: issue2.state,
+      number: issue2.number,
+      url: issue2.html_url,
+      comments: comments.map((c14) => ({
+        author: { login: c14.user?.login },
+        // Gitea has no author_association; downstream prompts treat the
+        // absence as an unknown relationship rather than failing to parse.
+        authorAssociation: c14.author_association ?? "NONE",
+        body: c14.body ?? "",
+        createdAt: c14.created_at
+      }))
+    });
+  }
+  /** Atomically swap one triage label for another. */
+  async swapLabel(issueNumber, oldLabel, newLabel, token) {
+    if (oldLabel) {
+      await this.removeLabel(issueNumber, oldLabel, token);
+    }
+    await this.addLabels(issueNumber, [newLabel], token);
+  }
+  runUrl(runId) {
+    return `${this.serverUrl}/${this.repo}/actions/runs/${runId}`;
+  }
+};
+
+// src/forge/gitea.ts
+var giteaLabelSchema = object({
+  id: number(),
+  name: string(),
+  description: nullish(string())
+});
+var PAGE_SIZE = 100;
+var CREATED_LABEL_COLOR = "ededed";
+var GiteaForge = class extends BaseForge {
+  /** Repo label list, cached for the lifetime of one action run. */
+  labelCache = null;
+  constructor(config2) {
+    super({ ...config2, kind: "gitea" });
+  }
+  // ---------- Issues ----------
+  async fetchIssueDetails(issueNumber, token) {
+    const issueRes = await this.request(`/repos/${this.repo}/issues/${issueNumber}`, token, {
+      description: `Failed to fetch issue ${issueNumber}`
+    });
+    const issue2 = await issueRes.json();
+    const comments = [];
+    let page = 1;
+    while (true) {
+      const res = await this.request(
+        `/repos/${this.repo}/issues/${issueNumber}/comments?limit=${PAGE_SIZE}&page=${page}`,
+        token,
+        { description: `Failed to fetch comments for issue ${issueNumber}` }
+      );
+      const batch = await res.json();
+      if (!Array.isArray(batch)) break;
+      comments.push(...batch);
+      if (batch.length < PAGE_SIZE) break;
+      page++;
+    }
+    return this.parseIssue({ issue: issue2, comments });
+  }
+  async postComment(issueNumber, body, token) {
+    await this.request(`/repos/${this.repo}/issues/${issueNumber}/comments`, token, {
+      method: "POST",
+      body: JSON.stringify({ body }),
+      description: "Failed to post comment"
+    });
+  }
+  // ---------- Labels ----------
+  async listLabels(token) {
+    if (this.labelCache) return this.labelCache;
+    const all = [];
+    let page = 1;
+    while (true) {
+      const res = await this.request(
+        `/repos/${this.repo}/labels?limit=${PAGE_SIZE}&page=${page}`,
+        token,
+        { description: "Failed to fetch labels" }
+      );
+      const batch = parse(array(giteaLabelSchema), await res.json());
+      all.push(...batch);
+      if (batch.length < PAGE_SIZE) break;
+      page++;
+    }
+    this.labelCache = all;
+    return all;
+  }
+  async createLabel(name, token) {
+    const res = await this.request(`/repos/${this.repo}/labels`, token, {
+      method: "POST",
+      body: JSON.stringify({ name, color: CREATED_LABEL_COLOR, description: "" }),
+      description: `Failed to create label "${name}"`
+    });
+    const created = parse(giteaLabelSchema, await res.json());
+    this.labelCache = [...this.labelCache ?? [], created];
+    return created;
+  }
+  async fetchRepoLabels(token) {
+    const all = await this.listLabels(token);
+    return this.splitLabels(all.map((l10) => ({ name: l10.name, description: l10.description ?? null })));
+  }
+  async addLabels(issueNumber, labels, token) {
+    if (labels.length === 0) return;
+    const existing = await this.listLabels(token);
+    const ids = [];
+    for (const name of labels) {
+      const match4 = existing.find((l10) => l10.name === name);
+      ids.push(match4 ? match4.id : (await this.createLabel(name, token)).id);
+    }
+    await this.request(`/repos/${this.repo}/issues/${issueNumber}/labels`, token, {
+      method: "POST",
+      body: JSON.stringify({ labels: ids }),
+      description: "Failed to add labels"
+    });
+  }
+  async removeLabel(issueNumber, label, token) {
+    const match4 = (await this.listLabels(token)).find((l10) => l10.name === label);
+    if (!match4) return;
+    await this.requestTolerating(
+      `/repos/${this.repo}/issues/${issueNumber}/labels/${match4.id}`,
+      token,
+      [404],
+      { method: "DELETE", description: "Failed to remove label" }
+    );
+  }
+  // ---------- Pull requests ----------
+  async createPullRequest(options, token) {
+    const res = await this.request(`/repos/${this.repo}/pulls`, token, {
+      method: "POST",
+      body: JSON.stringify(options),
+      description: "Failed to create pull request"
+    });
+    return await res.json();
+  }
+  async findPullRequest(head, token) {
+    let page = 1;
+    while (true) {
+      const res = await this.request(
+        `/repos/${this.repo}/pulls?state=open&limit=${PAGE_SIZE}&page=${page}`,
+        token,
+        { description: "Failed to check for existing PR" }
+      );
+      const pulls = await res.json();
+      if (!Array.isArray(pulls) || pulls.length === 0) return null;
+      const match4 = pulls.find((pr4) => pr4.head?.ref === head);
+      if (match4) return { number: match4.number, html_url: match4.html_url };
+      if (pulls.length < PAGE_SIZE) return null;
+      page++;
+    }
+  }
+  // ---------- Branches ----------
+  async findBranch(branches, token) {
+    for (const branch of branches) {
+      const branchPath = branch.split("/").map(encodeURIComponent).join("/");
+      const res = await this.requestTolerating(
+        `/repos/${this.repo}/branches/${branchPath}`,
+        token,
+        [404],
+        { description: `Failed to check branch ${branch}` }
+      );
+      if (res) return branch;
+    }
+    return null;
+  }
+  async deleteBranch(branch, token) {
+    const branchPath = branch.split("/").map(encodeURIComponent).join("/");
+    await this.requestTolerating(`/repos/${this.repo}/branches/${branchPath}`, token, [404], {
+      method: "DELETE",
+      description: "Failed to delete branch"
+    });
+  }
+  // ---------- URLs ----------
+  remoteUrl(token) {
+    const url2 = new URL(`${this.serverUrl}/${this.repo}.git`);
+    url2.username = token;
+    return url2.toString();
+  }
+  compareUrl(branch, baseBranch) {
+    return `${this.serverUrl}/${this.repo}/compare/${baseBranch}...${branch}`;
+  }
+};
+
+// src/forge/github.ts
+var GitHubForge = class extends BaseForge {
+  constructor(config2) {
+    super({ ...config2, kind: "github" });
+  }
+  headers(token) {
+    return {
+      Authorization: `token ${token}`,
+      "Content-Type": "application/json",
+      Accept: "application/vnd.github+json"
+    };
+  }
+  async fetchIssueDetails(issueNumber, token) {
+    const [issueRes, commentsRes] = await Promise.all([
+      this.request(`/repos/${this.repo}/issues/${issueNumber}`, token, {
+        description: `Failed to fetch issue ${issueNumber}`
+      }),
+      this.request(`/repos/${this.repo}/issues/${issueNumber}/comments?per_page=100`, token, {
+        description: `Failed to fetch comments for issue ${issueNumber}`
+      })
+    ]);
+    return this.parseIssue({
+      issue: await issueRes.json(),
+      comments: await commentsRes.json()
+    });
+  }
+  async fetchRepoLabels(token) {
+    const all = [];
+    let page = 1;
+    while (true) {
+      const res = await this.request(
+        `/repos/${this.repo}/labels?per_page=100&page=${page}`,
+        token,
+        {
+          description: "Failed to fetch labels"
+        }
+      );
+      const batch = parse(array(repoLabelSchema), await res.json());
+      all.push(...batch);
+      if (batch.length < 100) break;
+      page++;
+    }
+    return this.splitLabels(all);
+  }
+  async addLabels(issueNumber, labels, token) {
+    await this.request(`/repos/${this.repo}/issues/${issueNumber}/labels`, token, {
+      method: "POST",
+      body: JSON.stringify({ labels }),
+      description: "Failed to add labels"
+    });
+  }
+  async removeLabel(issueNumber, label, token) {
+    await this.requestTolerating(
+      `/repos/${this.repo}/issues/${issueNumber}/labels/${encodeURIComponent(label)}`,
+      token,
+      [404],
+      { method: "DELETE", description: "Failed to remove label" }
+    );
+  }
+  async postComment(issueNumber, body, token) {
+    await this.request(`/repos/${this.repo}/issues/${issueNumber}/comments`, token, {
+      method: "POST",
+      body: JSON.stringify({ body }),
+      description: "Failed to post comment"
+    });
+  }
+  async createPullRequest(options, token) {
+    const res = await this.request(`/repos/${this.repo}/pulls`, token, {
+      method: "POST",
+      body: JSON.stringify(options),
+      description: "Failed to create pull request"
+    });
+    return await res.json();
+  }
+  async findPullRequest(head, token) {
+    const owner = this.repo.split("/")[0];
+    const res = await this.request(
+      `/repos/${this.repo}/pulls?head=${encodeURIComponent(`${owner}:${head}`)}&state=open`,
+      token,
+      { description: "Failed to check for existing PR" }
+    );
+    const pulls = await res.json();
+    if (!Array.isArray(pulls)) return null;
+    return pulls[0] ?? null;
+  }
+  async findBranch(branches, token) {
+    for (const branch of branches) {
+      const branchPath = branch.split("/").map(encodeURIComponent).join("/");
+      const res = await this.request(
+        `/repos/${this.repo}/git/matching-refs/heads/${branchPath}`,
+        token,
+        { description: `Failed to check branch ${branch}` }
+      );
+      const refs = await res.json();
+      if (refs.some((ref) => ref.ref === `refs/heads/${branch}`)) {
+        return branch;
+      }
+    }
+    return null;
+  }
+  async deleteBranch(branch, token) {
+    await this.requestTolerating(
+      `/repos/${this.repo}/git/refs/heads/${encodeURIComponent(branch)}`,
+      token,
+      [422],
+      { method: "DELETE", description: "Failed to delete branch" }
+    );
+  }
+  remoteUrl(token) {
+    const url2 = new URL(`${this.serverUrl}/${this.repo}.git`);
+    url2.username = "x-access-token";
+    url2.password = token;
+    return url2.toString();
+  }
+  compareUrl(branch, _baseBranch) {
+    return `${this.serverUrl}/${this.repo}/compare/${branch}?expand=1`;
+  }
+};
+
+// src/forge/event.ts
+function parseWebhookEvent(payload) {
+  if (!payload || typeof payload !== "object") return null;
+  const event = payload;
+  const issue2 = event.issue;
+  if (!issue2) return null;
   return {
-    priorityLabels: allLabels.filter((l10) => /^- P\d/.test(l10.name)),
-    packageLabels: allLabels.filter((l10) => l10.name.startsWith("pkg:"))
+    action: String(event.action ?? ""),
+    isPullRequest: Boolean(issue2.pull_request),
+    issueNumber: Number(issue2.number),
+    issueLabels: (issue2.labels ?? []).map((l10) => l10.name),
+    commentAuthor: event.comment?.user?.login
   };
 }
-async function addLabels(repo, issueNumber, labels, token) {
-  const res = await fetch(`https://api.github.com/repos/${repo}/issues/${issueNumber}/labels`, {
-    method: "POST",
-    headers: headers(token),
-    body: JSON.stringify({ labels })
-  });
-  if (!res.ok) {
-    throw new Error(`Failed to add labels (HTTP ${res.status}): ${await res.text()}`);
-  }
+
+// src/forge/index.ts
+function isForgeKind(value) {
+  return value === "github" || value === "gitea";
 }
-async function removeLabel(repo, issueNumber, label, token) {
-  const res = await fetch(
-    `https://api.github.com/repos/${repo}/issues/${issueNumber}/labels/${encodeURIComponent(label)}`,
-    {
-      method: "DELETE",
-      headers: headers(token)
-    }
-  );
-  if (!res.ok && res.status !== 404) {
-    throw new Error(`Failed to remove label (HTTP ${res.status}): ${await res.text()}`);
-  }
+function detectForgeKind(env2 = process.env) {
+  return env2.GITEA_ACTIONS === "true" ? "gitea" : "github";
 }
-async function swapLabel(repo, issueNumber, oldLabel, newLabel, token) {
-  if (oldLabel) {
-    await removeLabel(repo, issueNumber, oldLabel, token);
-  }
-  await addLabels(repo, issueNumber, [newLabel], token);
+function resolveServerUrl(explicit, env2 = process.env) {
+  const url2 = explicit || env2.GITHUB_SERVER_URL || "https://github.com";
+  return url2.replace(/\/+$/, "");
 }
-async function postComment(repo, issueNumber, body, token) {
-  const res = await fetch(`https://api.github.com/repos/${repo}/issues/${issueNumber}/comments`, {
-    method: "POST",
-    headers: headers(token),
-    body: JSON.stringify({ body })
-  });
-  if (!res.ok) {
-    throw new Error(`Failed to post comment (HTTP ${res.status}): ${await res.text()}`);
-  }
+function resolveApiUrl(kind, serverUrl, explicit, env2 = process.env) {
+  if (explicit) return explicit.replace(/\/+$/, "");
+  if (env2.GITHUB_API_URL) return env2.GITHUB_API_URL.replace(/\/+$/, "");
+  if (kind === "gitea") return `${serverUrl}/api/v1`;
+  return serverUrl === "https://github.com" ? "https://api.github.com" : `${serverUrl}/api/v3`;
 }
-async function createPullRequest(repo, options, token) {
-  const res = await fetch(`https://api.github.com/repos/${repo}/pulls`, {
-    method: "POST",
-    headers: headers(token),
-    body: JSON.stringify({
-      head: options.head,
-      base: options.base,
-      title: options.title,
-      body: options.body
-    })
-  });
-  if (!res.ok) {
-    throw new Error(`Failed to create pull request (HTTP ${res.status}): ${await res.text()}`);
-  }
-  return await res.json();
+function defaultBotLogins(kind) {
+  return kind === "gitea" ? ["gitea-actions[bot]", "gitea-actions"] : ["github-actions[bot]"];
 }
-async function findPullRequest(repo, head, token) {
-  const owner = repo.split("/")[0];
-  const res = await fetch(
-    `https://api.github.com/repos/${repo}/pulls?head=${encodeURIComponent(`${owner}:${head}`)}&state=open`,
-    { headers: headers(token) }
-  );
-  if (!res.ok) {
-    throw new Error(`Failed to check for existing PR (HTTP ${res.status}): ${await res.text()}`);
-  }
-  const pulls = await res.json();
-  if (!Array.isArray(pulls)) return null;
-  return pulls[0] ?? null;
-}
-async function findBranch(repo, branches, token) {
-  for (const branch of branches) {
-    const branchPath = branch.split("/").map(encodeURIComponent).join("/");
-    const res = await fetch(
-      `https://api.github.com/repos/${repo}/git/matching-refs/heads/${branchPath}`,
-      {
-        headers: headers(token)
-      }
-    );
-    if (!res.ok) {
-      throw new Error(`Failed to check branch ${branch} (HTTP ${res.status}): ${await res.text()}`);
-    }
-    const refs = await res.json();
-    if (refs.some((ref) => ref.ref === `refs/heads/${branch}`)) {
-      return branch;
-    }
-  }
-  return null;
-}
-async function deleteBranch(repo, branch, token) {
-  const res = await fetch(
-    `https://api.github.com/repos/${repo}/git/refs/heads/${encodeURIComponent(branch)}`,
-    {
-      method: "DELETE",
-      headers: headers(token)
-    }
-  );
-  if (!res.ok && res.status !== 422) {
-    throw new Error(`Failed to delete branch (HTTP ${res.status}): ${await res.text()}`);
-  }
-}
-async function gitCommit(message) {
-  try {
-    await execFileAsync("git", ["add", "-A"]);
-    const { stdout, stderr } = await execFileAsync("git", ["commit", "-m", message]);
-    return { exitCode: 0, stdout, stderr };
-  } catch (err2) {
-    return { exitCode: err2.code ?? 1, stdout: err2.stdout ?? "", stderr: err2.stderr ?? "" };
-  }
-}
-async function gitPush(repo, branch, token, options) {
-  const forceFlag = options?.force ? " -f" : "";
-  const remoteUrl = `https://x-access-token:${token}@github.com/${repo}.git`;
-  try {
-    const { stdout, stderr } = await execAsync(`git push${forceFlag} ${remoteUrl} ${branch}`);
-    return { exitCode: 0, stdout, stderr };
-  } catch (err2) {
-    return { exitCode: err2.code ?? 1, stdout: err2.stdout ?? "", stderr: err2.stderr ?? "" };
-  }
+function createForge(config2) {
+  const forgeConfig = {
+    repo: config2.repo,
+    serverUrl: config2.serverUrl,
+    apiUrl: config2.apiUrl,
+    labelPatterns: config2.labelPatterns ?? DEFAULT_LABEL_PATTERNS
+  };
+  return config2.kind === "gitea" ? new GiteaForge(forgeConfig) : new GitHubForge(forgeConfig);
 }
 
 // src/handlers/cleanup.ts
 async function handleCleanup(issueNumber, ctx) {
   const branch = `triagebot/fix-${issueNumber}`;
   try {
-    await deleteBranch(ctx.repo, branch, ctx.writeToken);
+    await ctx.forge.deleteBranch(branch, ctx.writeToken);
     console.info(`Deleted branch ${branch}`);
   } catch {
     console.info(`No branch ${branch} to clean up`);
@@ -231966,8 +232212,8 @@ var GET_MATCH_RESULT = /* @__PURE__ */ Symbol();
 // node_modules/.pnpm/hono@4.12.25/node_modules/hono/dist/utils/body.js
 var parseBody = async (request, options = /* @__PURE__ */ Object.create(null)) => {
   const { all = false, dot = false } = options;
-  const headers2 = request instanceof HonoRequest ? request.raw.headers : request.headers;
-  const contentType2 = headers2.get("Content-Type");
+  const headers = request instanceof HonoRequest ? request.raw.headers : request.headers;
+  const contentType2 = headers.get("Content-Type");
   if (contentType2?.startsWith("multipart/form-data") || contentType2?.startsWith("application/x-www-form-urlencoded")) {
     return parseFormData(request, { all, dot });
   }
@@ -232879,7 +233125,7 @@ init_auth2();
 import { exec } from "node:child_process";
 import * as fs3 from "node:fs/promises";
 import * as path4 from "node:path";
-import { promisify as promisify3 } from "node:util";
+import { promisify as promisify2 } from "node:util";
 
 // node_modules/.pnpm/@hono+node-server@2.0.5_hono@4.12.25/node_modules/@hono/node-server/dist/index.mjs
 import { Readable as Readable2 } from "node:stream";
@@ -232933,10 +233179,10 @@ var newHeadersFromIncoming = (incoming) => {
   return new Headers(headerRecord);
 };
 var wrapBodyStream = Symbol("wrapBodyStream");
-var newRequestFromIncoming = (method, url2, headers2, incoming, abortController) => {
+var newRequestFromIncoming = (method, url2, headers, incoming, abortController) => {
   const init = {
     method,
-    headers: headers2,
+    headers,
     signal: abortController.signal
   };
   if (method === "TRACE") {
@@ -233229,7 +233475,7 @@ var Response$1 = class Response$12 {
     } : this.#init);
   }
   constructor(body, init) {
-    let headers2;
+    let headers;
     this.#body = body;
     if (init instanceof Response$12) {
       const cachedGlobalResponse = init[responseCache];
@@ -233239,13 +233485,13 @@ var Response$1 = class Response$12 {
         return;
       } else {
         this.#init = init.#init;
-        headers2 = new Headers(init.headers);
+        headers = new Headers(init.headers);
       }
     } else this.#init = init;
     if (body == null || typeof body === "string" || typeof body?.getReader !== "undefined" || body instanceof Blob || body instanceof Uint8Array) this[cacheKey] = [
       init?.status || 200,
       body ?? null,
-      headers2 || init?.headers
+      headers || init?.headers
     ];
   }
   get headers() {
@@ -233331,15 +233577,15 @@ Object.defineProperty(Response$1, "json", {
     const body = JSON.stringify(data);
     if (body === void 0) throw new TypeError("The data is not JSON serializable");
     const initHeaders = init?.headers;
-    let headers2;
+    let headers;
     if (initHeaders) {
-      headers2 = new Headers(initHeaders);
-      if (!headers2.has("content-type")) headers2.set("content-type", "application/json");
-    } else headers2 = { "content-type": "application/json" };
+      headers = new Headers(initHeaders);
+      if (!headers.has("content-type")) headers.set("content-type", "application/json");
+    } else headers = { "content-type": "application/json" };
     return new Response$1(body, {
       status: init?.status ?? 200,
       statusText: init?.statusText,
-      headers: headers2
+      headers
     });
   },
   writable: true,
@@ -233437,7 +233683,7 @@ var upgradeWebSocket = defineWebSocketHelper(async (c14, events, options) => {
 
 // node_modules/.pnpm/@flue+runtime@0.8.1_@standard-schema+spec@1.1.0_@types+json-schema@7.0.15_typebox@1.1.3_a85e3b0cb1edc6f323588217fc001596/node_modules/@flue/runtime/dist/node/index.mjs
 init_wrapper();
-var execAsync2 = promisify3(exec);
+var execAsync = promisify2(exec);
 var DEFAULT_LOCAL_ENV_ALLOWLIST = [
   "PATH",
   "HOME",
@@ -233477,7 +233723,7 @@ function createLocalSessionEnv(options = {}) {
       const timeoutSignal = typeof opts?.timeout === "number" ? AbortSignal.timeout(opts.timeout * 1e3) : void 0;
       const mergedSignal = signal && timeoutSignal ? AbortSignal.any([signal, timeoutSignal]) : signal ?? timeoutSignal;
       try {
-        const { stdout, stderr } = await execAsync2(command, {
+        const { stdout, stderr } = await execAsync(command, {
           cwd: opts?.cwd ? resolvePath(opts.cwd) : cwd,
           env: opts?.env ? {
             ...baseEnv,
@@ -241021,6 +241267,31 @@ async function createSession(agent) {
   return harness.session();
 }
 
+// src/git.ts
+import { exec as execCb, execFile as execFileCb } from "node:child_process";
+import { promisify as promisify3 } from "node:util";
+var execAsync2 = promisify3(execCb);
+var execFileAsync = promisify3(execFileCb);
+async function gitCommit(message) {
+  try {
+    await execFileAsync("git", ["add", "-A"]);
+    const { stdout, stderr } = await execFileAsync("git", ["commit", "-m", message]);
+    return { exitCode: 0, stdout, stderr };
+  } catch (err2) {
+    return { exitCode: err2.code ?? 1, stdout: err2.stdout ?? "", stderr: err2.stderr ?? "" };
+  }
+}
+async function gitPush(forge, branch, token, options) {
+  const forceFlag = options?.force ? " -f" : "";
+  const remoteUrl = forge.remoteUrl(token);
+  try {
+    const { stdout, stderr } = await execAsync2(`git push${forceFlag} ${remoteUrl} ${branch}`);
+    return { exitCode: 0, stdout, stderr };
+  } catch (err2) {
+    return { exitCode: err2.code ?? 1, stdout: err2.stdout ?? "", stderr: err2.stderr ?? "" };
+  }
+}
+
 // src/labels.ts
 function labelConfigFromInputs(getInput2) {
   return {
@@ -241073,9 +241344,9 @@ var prContentSchema = object({
 });
 async function generatePRWithSkill(session, skillName, opts) {
   const provenance = opts.confirmedBy ? `This PR was auto-generated by the triage bot after the reporter confirmed the fix works.
-The fix branch is "${opts.branch}" targeting "main".
+The fix branch is "${opts.branch}" targeting "${opts.baseBranch}".
 The issue reporter (@${opts.confirmedBy}) confirmed the fix resolves their issue.` : `This PR was auto-generated by the triage bot after it found and verified a fix.
-The fix branch is "${opts.branch}" targeting "main".`;
+The fix branch is "${opts.branch}" targeting "${opts.baseBranch}".`;
   const { data } = await session.skill(skillName, {
     args: {
       issueNumber: opts.issueNumber,
@@ -241101,7 +241372,7 @@ async function generatePRWithPrompt(session, opts) {
 ${opts.issueDetails.body}
 
 ## Context
-- Fix branch: \`${opts.branch}\` targeting \`main\`
+- Fix branch: \`${opts.branch}\` targeting \`${opts.baseBranch}\`
 ${provenance}
 - This PR was auto-generated by a triage bot
 
@@ -241156,7 +241427,7 @@ The comment must start with an at-a-glance summary, followed by short explanatio
 
 \`\`\`markdown
 - **Reproduced:** [Yes / No / Skipped \u2014 reason]
-- **Exploration:** [Yes / No / Partial / Already fixed on main] [If branchName is non-null: \u2014 [View branch](https://github.com/{repo}/compare/{branchName}?expand=1)]
+- **Exploration:** [Yes / No / Partial / Already fixed on the base branch] [If a Branch URL is given in the Context section below: \u2014 [View branch]({that exact URL, copied verbatim})]
 - **Unit Test:** [Yes \u2014 path/to/test.test.ts / No \u2014 reason]
 - **Priority:** [See Priority Instructions above]
 
@@ -241194,6 +241465,7 @@ async function generateComment(session, args) {
 
 - **Issue:** #${args.issueDetails.number} \u2014 ${args.issueDetails.title}
 - **Branch:** ${args.branchName ?? "(none)"}
+- **Branch URL:** ${args.compareUrl ?? "(none)"}
 - **Repo:** ${args.repo}
 - **Preview Release:** ${args.previewRelease ? args.previewRelease.urls.join(", ") : "(none)"}
 
@@ -241224,21 +241496,49 @@ function packageDirsFromChangedFiles(changedFiles) {
   }
   return [...packageDirs];
 }
-async function publishPreviewRelease(session) {
+var URL_LINE = /^https?:\/\/\S+$/;
+function extractUrls(stdout) {
+  return stdout.split("\n").map((line) => line.trim()).filter((line) => URL_LINE.test(line));
+}
+async function publishWithCommand(session, command, packages) {
+  const resolved = command.includes("{packages}") ? command.replaceAll("{packages}", packages) : `${command} ${packages}`.trim();
+  console.info("Preview release: running preview-release-command.");
+  const result = await session.shell(resolved);
+  if (result.exitCode !== 0) {
+    console.warn("Preview release command failed:", result.stderr || result.stdout);
+    return null;
+  }
+  const urls = extractUrls(result.stdout);
+  if (urls.length === 0) {
+    console.warn("Preview release command exited 0 but printed no install URLs.");
+    return null;
+  }
+  return { urls };
+}
+async function publishPreviewRelease(session, ctx) {
   console.info("Preview release: checking changed package directories.");
-  const diffResult = await session.shell("git diff main --name-only");
+  const diffResult = await session.shell(`git diff ${ctx.baseBranch} --name-only`);
   if (!diffResult.stdout.trim()) {
-    console.info("Preview release skipped: no changed files relative to main.");
+    console.info(`Preview release skipped: no changed files relative to ${ctx.baseBranch}.`);
     return null;
   }
   const changedFiles = diffResult.stdout.trim().split("\n");
   const packageDirs = packageDirsFromChangedFiles(changedFiles);
   console.info("Preview release changed package directories:", packageDirs);
+  const packages = packageDirs.join(" ");
+  if (ctx.previewReleaseCommand) {
+    return publishWithCommand(session, ctx.previewReleaseCommand, packages);
+  }
+  if (ctx.forge.kind !== "github") {
+    console.info(
+      `Preview release skipped: the built-in pkg.pr.new publisher does not support ${ctx.forge.kind}. Set "preview-release-command" to publish previews, or "auto-pr-on-fix: true" to open pull requests directly.`
+    );
+    return null;
+  }
   if (packageDirs.length === 0) {
     console.info("Preview release skipped: no changed packages under packages/.");
     return null;
   }
-  const packages = packageDirs.join(" ");
   console.info(`Preview release: publishing packages ${packages}.`);
   const publishResult = await session.shell(
     `pnpm dlx pkg-pr-new publish --pnpm --compact --no-template --comment=off --json preview-release.json ${packages}`
@@ -241441,8 +241741,7 @@ function countTriageFailures(issueDetails) {
 function currentRunUrl(ctx) {
   const runId = process.env.GITHUB_RUN_ID;
   if (!runId) return null;
-  const serverUrl = process.env.GITHUB_SERVER_URL || "https://github.com";
-  return `${serverUrl}/${ctx.repo}/actions/runs/${runId}`;
+  return ctx.forge.runUrl(runId);
 }
 function formatFailureComment(error51, attempt, ctx) {
   const runUrl = currentRunUrl(ctx);
@@ -241462,19 +241761,18 @@ ${message}
 \`\`\``;
 }
 async function recordTriageFailure(issueNumber, ctx, error51) {
-  const issueDetails = await fetchIssueDetails(ctx.repo, issueNumber, ctx.readToken);
+  const issueDetails = await ctx.forge.fetchIssueDetails(issueNumber, ctx.readToken);
   const attempt = Math.min(countTriageFailures(issueDetails) + 1, MAX_TRIAGE_FAILURES);
   const currentLabel = currentTriageLabel(
     issueDetails.labels.map((l10) => l10.name),
     ctx.labels
   );
-  await postComment(
-    ctx.repo,
+  await ctx.forge.postComment(
     issueNumber,
     formatFailureComment(error51, attempt, ctx),
     ctx.writeToken
   );
-  await swapLabel(ctx.repo, issueNumber, currentLabel, ctx.labels.failed, ctx.writeToken);
+  await ctx.forge.swapLabel(issueNumber, currentLabel, ctx.labels.failed, ctx.writeToken);
 }
 async function handleTriage(issueNumber, ctx) {
   try {
@@ -241490,7 +241788,7 @@ async function handleTriage(issueNumber, ctx) {
 }
 async function runTriage(issueNumber, ctx) {
   const branch = `triagebot/fix-${issueNumber}`;
-  const issueDetails = await fetchIssueDetails(ctx.repo, issueNumber, ctx.readToken);
+  const issueDetails = await ctx.forge.fetchIssueDetails(issueNumber, ctx.readToken);
   const currentLabel = currentTriageLabel(
     issueDetails.labels.map((l10) => l10.name),
     ctx.labels
@@ -241522,7 +241820,7 @@ async function runTriage(issueNumber, ctx) {
   console.info("Triage pipeline result:", triageResult);
   let isPushed = false;
   {
-    const diff = await session.shell("git diff main --stat");
+    const diff = await session.shell(`git diff ${ctx.baseBranch} --stat`);
     console.info(`Triage diff stat present: ${Boolean(diff.stdout.trim())}`);
     if (diff.stdout.trim()) {
       const status = await session.shell("git status --porcelain");
@@ -241538,7 +241836,7 @@ async function runTriage(issueNumber, ctx) {
           );
         }
       }
-      const pushResult = await gitPush(ctx.repo, branch, ctx.writeToken, { force: true });
+      const pushResult = await gitPush(ctx.forge, branch, ctx.writeToken, { force: true });
       console.info("push result:", pushResult);
       isPushed = pushResult.exitCode === 0;
     }
@@ -241548,25 +241846,29 @@ async function runTriage(issueNumber, ctx) {
   let openedPr = null;
   if (triageResult.fixed && isPushed) {
     if (ctx.autoPrOnFix) {
-      openedPr = await findPullRequest(ctx.repo, branch, ctx.readToken);
+      openedPr = await ctx.forge.findPullRequest(branch, ctx.readToken);
       if (openedPr) {
         console.info(`Auto-PR skipped: PR already exists at ${openedPr.html_url}.`);
       } else {
         const prContent = await generatePRContent(
           session,
-          { issueNumber, issueDetails, branch },
+          { issueNumber, issueDetails, branch, baseBranch: ctx.baseBranch },
           ctx
         );
-        openedPr = await createPullRequest(
-          ctx.repo,
-          { head: branch, base: "main", title: prContent.title, body: prContent.body },
+        openedPr = await ctx.forge.createPullRequest(
+          {
+            head: branch,
+            base: ctx.baseBranch,
+            title: prContent.title,
+            body: prContent.body
+          },
           ctx.writeToken
         );
         console.info(`Auto-PR created: ${openedPr.html_url}`);
-        await addLabels(ctx.repo, openedPr.number, [ctx.labels.prFixVerified], ctx.writeToken);
+        await ctx.forge.addLabels(openedPr.number, [ctx.labels.prFixVerified], ctx.writeToken);
       }
     } else {
-      previewRelease = await publishPreviewRelease(session);
+      previewRelease = await publishPreviewRelease(session, ctx);
       if (previewRelease) {
         console.info("Preview release published:", previewRelease.urls);
       } else {
@@ -241578,10 +241880,11 @@ async function runTriage(issueNumber, ctx) {
       `Preview release / auto-PR skipped: fixed=${triageResult.fixed} branchPushed=${isPushed}.`
     );
   }
-  const { priorityLabels, packageLabels } = await fetchRepoLabels(ctx.repo, ctx.readToken);
+  const { priorityLabels, packageLabels } = await ctx.forge.fetchRepoLabels(ctx.readToken);
   const branchName = isPushed ? branch : null;
   let comment = await generateComment(session, {
     branchName,
+    compareUrl: branchName ? ctx.forge.compareUrl(branchName, ctx.baseBranch) : null,
     priorityLabels,
     issueDetails,
     repo: ctx.repo,
@@ -241593,12 +241896,12 @@ async function runTriage(issueNumber, ctx) {
 
 I've opened a pull request with this fix: ${openedPr.html_url}`;
   }
-  await postComment(ctx.repo, issueNumber, comment, ctx.writeToken);
+  await ctx.forge.postComment(issueNumber, comment, ctx.writeToken);
   console.info(`Posted triage comment for issue #${issueNumber}.`);
   const newLabel = resolveTriageLabel(triageResult, ctx, previewRelease, Boolean(openedPr));
   console.info(`Swapping triage label from ${currentLabel ?? "(none)"} to ${newLabel}.`);
-  await swapLabel(ctx.repo, issueNumber, currentLabel, newLabel, ctx.writeToken);
-  if (triageResult.reproducible) {
+  await ctx.forge.swapLabel(issueNumber, currentLabel, newLabel, ctx.writeToken);
+  if (triageResult.reproducible && priorityLabels.length > 0) {
     const selectedLabels = await selectTriageLabels(session, {
       comment,
       priorityLabels,
@@ -241606,14 +241909,18 @@ I've opened a pull request with this fix: ${openedPr.html_url}`;
     });
     console.info("Selected additional labels:", selectedLabels);
     if (selectedLabels.length > 0) {
-      await addLabels(ctx.repo, issueNumber, selectedLabels, ctx.writeToken);
+      await ctx.forge.addLabels(issueNumber, selectedLabels, ctx.writeToken);
     }
+  } else if (triageResult.reproducible) {
+    console.info(
+      "Skipping priority/package labelling: no repo labels matched the configured patterns."
+    );
   }
 }
 
 // src/handlers/retriage.ts
 async function handleRetriage(issueNumber, currentLabel, ctx) {
-  const issueDetails = await fetchIssueDetails(ctx.repo, issueNumber, ctx.readToken);
+  const issueDetails = await ctx.forge.fetchIssueDetails(issueNumber, ctx.readToken);
   if (currentLabel === ctx.labels.failed && countTriageFailures(issueDetails) >= MAX_TRIAGE_FAILURES) {
     console.info(`Retriage skipped for issue #${issueNumber}: maximum failed attempts reached.`);
     return;
@@ -241660,21 +241967,20 @@ Return only "yes" or "no" inside the ---RESULT_START--- / ---RESULT_END--- block
     return;
   }
   console.info(`Retriaging issue #${issueNumber}`);
-  await swapLabel(ctx.repo, issueNumber, currentLabel, ctx.labels.needsTriage, ctx.writeToken);
+  await ctx.forge.swapLabel(issueNumber, currentLabel, ctx.labels.needsTriage, ctx.writeToken);
   await handleTriage(issueNumber, ctx);
 }
 
 // src/handlers/verify-fix.ts
 async function handleVerifyFix(issueNumber, ctx) {
-  const branch = await findBranch(
-    ctx.repo,
+  const branch = await ctx.forge.findBranch(
     [`triagebot/fix-${issueNumber}`, `flue/fix-${issueNumber}`],
     ctx.readToken
   );
   if (!branch) {
     throw new Error(`No fix branch found for issue #${issueNumber}`);
   }
-  const issueDetails = await fetchIssueDetails(ctx.repo, issueNumber, ctx.readToken);
+  const issueDetails = await ctx.forge.fetchIssueDetails(issueNumber, ctx.readToken);
   const latestUserComment = [...issueDetails.comments].reverse().find((c14) => !ctx.botLogins.includes(c14.author.login));
   if (!latestUserComment) {
     console.info("No user comment found, skipping verification.");
@@ -241749,8 +242055,7 @@ Return your classification.`,
     return;
   }
   if (classification.status === "rejected") {
-    await swapLabel(
-      ctx.repo,
+    await ctx.forge.swapLabel(
       issueNumber,
       ctx.labels.fixPending,
       ctx.labels.fixRejected,
@@ -241758,18 +242063,16 @@ Return your classification.`,
     );
     return;
   }
-  const existingPr = await findPullRequest(ctx.repo, branch, ctx.readToken);
+  const existingPr = await ctx.forge.findPullRequest(branch, ctx.readToken);
   if (existingPr) {
     console.info(`PR already exists: ${existingPr.html_url}`);
-    await swapLabel(
-      ctx.repo,
+    await ctx.forge.swapLabel(
       issueNumber,
       ctx.labels.fixPending,
       ctx.labels.fixVerified,
       ctx.writeToken
     );
-    await postComment(
-      ctx.repo,
+    await ctx.forge.postComment(
       issueNumber,
       `The fix has been verified! A pull request already exists: ${existingPr.html_url}`,
       ctx.writeToken
@@ -241780,25 +242083,23 @@ Return your classification.`,
     issueNumber,
     issueDetails,
     branch,
+    baseBranch: ctx.baseBranch,
     confirmedBy: latestUserComment.author.login
   };
   const prContent = await generatePRContent(session, prOpts, ctx);
-  const pr4 = await createPullRequest(
-    ctx.repo,
-    { head: branch, base: "main", title: prContent.title, body: prContent.body },
+  const pr4 = await ctx.forge.createPullRequest(
+    { head: branch, base: ctx.baseBranch, title: prContent.title, body: prContent.body },
     ctx.writeToken
   );
   console.info(`PR created: ${pr4.html_url}`);
-  await addLabels(ctx.repo, pr4.number, [ctx.labels.prFixVerified], ctx.writeToken);
-  await swapLabel(
-    ctx.repo,
+  await ctx.forge.addLabels(pr4.number, [ctx.labels.prFixVerified], ctx.writeToken);
+  await ctx.forge.swapLabel(
     issueNumber,
     ctx.labels.fixPending,
     ctx.labels.fixVerified,
     ctx.writeToken
   );
-  await postComment(
-    ctx.repo,
+  await ctx.forge.postComment(
     issueNumber,
     `The fix has been verified! A pull request has been created: ${pr4.html_url}`,
     ctx.writeToken
@@ -241845,8 +242146,8 @@ function route(event, labels) {
 }
 
 // src/index.ts
-function parseBotLogins(input) {
-  const defaults3 = ["github-actions[bot]"];
+function parseBotLogins(input, kind) {
+  const defaults3 = defaultBotLogins(kind);
   if (!input) return defaults3;
   const extra = input.split(",").map((s11) => s11.trim()).filter(Boolean);
   return [.../* @__PURE__ */ new Set([...defaults3, ...extra])];
@@ -241858,6 +242159,23 @@ function getRequiredInput(name) {
   }
   return value;
 }
+function resolveForgeKind() {
+  const explicit = getInput("forge");
+  if (!explicit) return detectForgeKind();
+  if (!isForgeKind(explicit)) {
+    throw new Error(`Unsupported "forge" input: "${explicit}". Expected "github" or "gitea".`);
+  }
+  return explicit;
+}
+function resolveLabelPatterns() {
+  const priority = getInput("priority-label-pattern");
+  const pkg = getInput("package-label-pattern");
+  if (!priority && !pkg) return void 0;
+  return {
+    priority: priority ? new RegExp(priority) : /^- P\d/,
+    package: pkg ? new RegExp(pkg) : /^pkg:/
+  };
+}
 async function main() {
   const eventPath = process.env.GITHUB_EVENT_PATH;
   if (!eventPath) {
@@ -241868,9 +242186,22 @@ async function main() {
   if (!repo) {
     throw new Error("GITHUB_REPOSITORY is not set");
   }
+  const kind = resolveForgeKind();
+  const serverUrl = resolveServerUrl(getInput("server-url") || null);
+  const apiUrl = resolveApiUrl(kind, serverUrl, getInput("api-url") || null);
+  console.info(`Forge: ${kind} (server=${serverUrl}, api=${apiUrl})`);
+  const forge = createForge({
+    kind,
+    repo,
+    serverUrl,
+    apiUrl,
+    labelPatterns: resolveLabelPatterns()
+  });
   const labels = labelConfigFromInputs(getInput);
   const ctx = {
+    forge,
     repo,
+    baseBranch: getInput("base-branch") || "main",
     readToken: getRequiredInput("read-token"),
     writeToken: getRequiredInput("write-token"),
     anthropicApiKey: getInput("anthropic-api-key") || null,
@@ -241881,10 +242212,11 @@ async function main() {
     prSkillName: getInput("pr-skill-name") || "pr-writer",
     autoPrOnFix: getInput("auto-pr-on-fix") === "true",
     buildCommand: getInput("build-command") || null,
+    previewReleaseCommand: getInput("preview-release-command") || null,
     triageModel: getInput("triage-model") || "anthropic/claude-opus-4-6",
     verificationModel: getInput("verification-model") || "anthropic/claude-sonnet-4-6",
     labels,
-    botLogins: parseBotLogins(getInput("bot-logins"))
+    botLogins: parseBotLogins(getInput("bot-logins"), kind)
   };
   const hasCloudflare = !!ctx.cloudflareApiKey && !!ctx.cloudflareAccountId;
   if (!ctx.anthropicApiKey && !hasCloudflare) {
@@ -241906,19 +242238,12 @@ async function main() {
   if (ctx.cloudflareAccountId) {
     process.env.CLOUDFLARE_ACCOUNT_ID = ctx.cloudflareAccountId;
   }
-  const issue2 = payload.issue;
-  if (!issue2) {
+  const parsed = parseWebhookEvent(payload);
+  if (!parsed) {
     console.info("No issue in event payload, nothing to do.");
     return;
   }
-  const event = {
-    action: payload.action,
-    isPullRequest: !!issue2.pull_request,
-    issueNumber: issue2.number,
-    issueLabels: (issue2.labels ?? []).map((l10) => l10.name),
-    commentAuthor: payload.comment?.user?.login,
-    botLogins: ctx.botLogins
-  };
+  const event = { ...parsed, botLogins: ctx.botLogins };
   const action = route(event, labels);
   console.info(`Router decision: ${action.type}`, action);
   switch (action.type) {
