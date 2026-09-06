@@ -12,20 +12,8 @@ import { local } from '@flue/runtime/node';
 import * as v from 'valibot';
 import type { ActionContext } from '../context.ts';
 import { createSession } from '../flue.ts';
-import {
-	addLabels,
-	createPullRequest,
-	fetchIssueDetails,
-	fetchRepoLabels,
-	findPullRequest,
-	gitCommit,
-	gitPush,
-	type IssueDetails,
-	type PullRequest,
-	postComment,
-	type RepoLabel,
-	swapLabel,
-} from '../github.ts';
+import type { IssueDetails, PullRequest, RepoLabel } from '../forge/index.ts';
+import { gitCommit, gitPush } from '../git.ts';
 import { currentTriageLabel } from '../labels.ts';
 import { generatePRContent } from '../pr.ts';
 import { generateComment } from './comment.ts';
@@ -58,23 +46,77 @@ function packageDirsFromChangedFiles(changedFiles: string[]): string[] {
 	return [...packageDirs];
 }
 
-async function publishPreviewRelease(session: FlueSession): Promise<PreviewRelease | null> {
+/** A line that is nothing but an http(s) URL, as printed by a custom publisher. */
+const URL_LINE = /^https?:\/\/\S+$/;
+
+function extractUrls(stdout: string): string[] {
+	return stdout
+		.split('\n')
+		.map((line) => line.trim())
+		.filter((line) => URL_LINE.test(line));
+}
+
+/**
+ * Run the project's own preview publisher. The contract is deliberately thin:
+ * exit 0 and print one install URL per line. `{packages}` in the command is
+ * replaced with the changed package directories.
+ */
+async function publishWithCommand(
+	session: FlueSession,
+	command: string,
+	packages: string,
+): Promise<PreviewRelease | null> {
+	const resolved = command.includes('{packages}')
+		? command.replaceAll('{packages}', packages)
+		: `${command} ${packages}`.trim();
+	console.info('Preview release: running preview-release-command.');
+	const result = await session.shell(resolved);
+	if (result.exitCode !== 0) {
+		console.warn('Preview release command failed:', result.stderr || result.stdout);
+		return null;
+	}
+	const urls = extractUrls(result.stdout);
+	if (urls.length === 0) {
+		console.warn('Preview release command exited 0 but printed no install URLs.');
+		return null;
+	}
+	return { urls };
+}
+
+async function publishPreviewRelease(
+	session: FlueSession,
+	ctx: ActionContext,
+): Promise<PreviewRelease | null> {
 	console.info('Preview release: checking changed package directories.');
-	const diffResult = await session.shell('git diff main --name-only');
+	const diffResult = await session.shell(`git diff ${ctx.baseBranch} --name-only`);
 	if (!diffResult.stdout.trim()) {
-		console.info('Preview release skipped: no changed files relative to main.');
+		console.info(`Preview release skipped: no changed files relative to ${ctx.baseBranch}.`);
 		return null;
 	}
 
 	const changedFiles = diffResult.stdout.trim().split('\n');
 	const packageDirs = packageDirsFromChangedFiles(changedFiles);
 	console.info('Preview release changed package directories:', packageDirs);
+	const packages = packageDirs.join(' ');
+
+	if (ctx.previewReleaseCommand) {
+		return publishWithCommand(session, ctx.previewReleaseCommand, packages);
+	}
+
+	// The built-in publisher targets pkg.pr.new, which authenticates through a
+	// GitHub App on github.com and cannot serve a self-hosted forge.
+	if (ctx.forge.kind !== 'github') {
+		console.info(
+			`Preview release skipped: the built-in pkg.pr.new publisher does not support ${ctx.forge.kind}. Set "preview-release-command" to publish previews, or "auto-pr-on-fix: true" to open pull requests directly.`,
+		);
+		return null;
+	}
+
 	if (packageDirs.length === 0) {
 		console.info('Preview release skipped: no changed packages under packages/.');
 		return null;
 	}
 
-	const packages = packageDirs.join(' ');
 	console.info(`Preview release: publishing packages ${packages}.`);
 	const publishResult = await session.shell(
 		`pnpm dlx pkg-pr-new publish --pnpm --compact --no-template --comment=off --json preview-release.json ${packages}`,
@@ -318,8 +360,7 @@ export function countTriageFailures(issueDetails: IssueDetails): number {
 function currentRunUrl(ctx: ActionContext): string | null {
 	const runId = process.env.GITHUB_RUN_ID;
 	if (!runId) return null;
-	const serverUrl = process.env.GITHUB_SERVER_URL || 'https://github.com';
-	return `${serverUrl}/${ctx.repo}/actions/runs/${runId}`;
+	return ctx.forge.runUrl(runId);
 }
 
 function formatFailureComment(error: unknown, attempt: number, ctx: ActionContext): string {
@@ -347,20 +388,19 @@ async function recordTriageFailure(
 	ctx: ActionContext,
 	error: unknown,
 ): Promise<void> {
-	const issueDetails = await fetchIssueDetails(ctx.repo, issueNumber, ctx.readToken);
+	const issueDetails = await ctx.forge.fetchIssueDetails(issueNumber, ctx.readToken);
 	const attempt = Math.min(countTriageFailures(issueDetails) + 1, MAX_TRIAGE_FAILURES);
 	const currentLabel = currentTriageLabel(
 		issueDetails.labels.map((l) => l.name),
 		ctx.labels,
 	);
 
-	await postComment(
-		ctx.repo,
+	await ctx.forge.postComment(
 		issueNumber,
 		formatFailureComment(error, attempt, ctx),
 		ctx.writeToken,
 	);
-	await swapLabel(ctx.repo, issueNumber, currentLabel, ctx.labels.failed, ctx.writeToken);
+	await ctx.forge.swapLabel(issueNumber, currentLabel, ctx.labels.failed, ctx.writeToken);
 }
 
 export async function handleTriage(issueNumber: number, ctx: ActionContext): Promise<void> {
@@ -378,7 +418,7 @@ export async function handleTriage(issueNumber: number, ctx: ActionContext): Pro
 
 async function runTriage(issueNumber: number, ctx: ActionContext): Promise<void> {
 	const branch = `triagebot/fix-${issueNumber}`;
-	const issueDetails = await fetchIssueDetails(ctx.repo, issueNumber, ctx.readToken);
+	const issueDetails = await ctx.forge.fetchIssueDetails(issueNumber, ctx.readToken);
 	const currentLabel = currentTriageLabel(
 		issueDetails.labels.map((l) => l.name),
 		ctx.labels,
@@ -411,8 +451,8 @@ async function runTriage(issueNumber: number, ctx: ActionContext): Promise<void>
 
 	const session = await createSession(agent);
 
-	// Create the fix branch so the agent's changes don't land on main.
-	// This is needed for both initial triage and retriage.
+	// Create the fix branch so the agent's changes don't land on the base
+	// branch. This is needed for both initial triage and retriage.
 	await session.shell(`git checkout -B ${JSON.stringify(branch)}`);
 
 	// Run the pipeline.
@@ -422,7 +462,7 @@ async function runTriage(issueNumber: number, ctx: ActionContext): Promise<void>
 
 	// Push fix branch if there are changes.
 	{
-		const diff = await session.shell('git diff main --stat');
+		const diff = await session.shell(`git diff ${ctx.baseBranch} --stat`);
 		console.info(`Triage diff stat present: ${Boolean(diff.stdout.trim())}`);
 		if (diff.stdout.trim()) {
 			const status = await session.shell('git status --porcelain');
@@ -440,7 +480,7 @@ async function runTriage(issueNumber: number, ctx: ActionContext): Promise<void>
 					);
 				}
 			}
-			const pushResult = await gitPush(ctx.repo, branch, ctx.writeToken, { force: true });
+			const pushResult = await gitPush(ctx.forge, branch, ctx.writeToken, { force: true });
 			console.info('push result:', pushResult);
 			isPushed = pushResult.exitCode === 0;
 		}
@@ -453,25 +493,29 @@ async function runTriage(issueNumber: number, ctx: ActionContext): Promise<void>
 		if (ctx.autoPrOnFix) {
 			// Direct-PR mode: open a PR immediately, skipping the preview /
 			// reporter-confirmation flow.
-			openedPr = await findPullRequest(ctx.repo, branch, ctx.readToken);
+			openedPr = await ctx.forge.findPullRequest(branch, ctx.readToken);
 			if (openedPr) {
 				console.info(`Auto-PR skipped: PR already exists at ${openedPr.html_url}.`);
 			} else {
 				const prContent = await generatePRContent(
 					session,
-					{ issueNumber, issueDetails, branch },
+					{ issueNumber, issueDetails, branch, baseBranch: ctx.baseBranch },
 					ctx,
 				);
-				openedPr = await createPullRequest(
-					ctx.repo,
-					{ head: branch, base: 'main', title: prContent.title, body: prContent.body },
+				openedPr = await ctx.forge.createPullRequest(
+					{
+						head: branch,
+						base: ctx.baseBranch,
+						title: prContent.title,
+						body: prContent.body,
+					},
 					ctx.writeToken,
 				);
 				console.info(`Auto-PR created: ${openedPr.html_url}`);
-				await addLabels(ctx.repo, openedPr.number, [ctx.labels.prFixVerified], ctx.writeToken);
+				await ctx.forge.addLabels(openedPr.number, [ctx.labels.prFixVerified], ctx.writeToken);
 			}
 		} else {
-			previewRelease = await publishPreviewRelease(session);
+			previewRelease = await publishPreviewRelease(session, ctx);
 			if (previewRelease) {
 				console.info('Preview release published:', previewRelease.urls);
 			} else {
@@ -485,13 +529,14 @@ async function runTriage(issueNumber: number, ctx: ActionContext): Promise<void>
 	}
 
 	// Fetch repo labels for comment generation and label selection.
-	const { priorityLabels, packageLabels } = await fetchRepoLabels(ctx.repo, ctx.readToken);
+	const { priorityLabels, packageLabels } = await ctx.forge.fetchRepoLabels(ctx.readToken);
 
 	const branchName = isPushed ? branch : null;
 
 	// Generate the triage comment using the action's built-in comment skill.
 	let comment = await generateComment(session, {
 		branchName,
+		compareUrl: branchName ? ctx.forge.compareUrl(branchName, ctx.baseBranch) : null,
 		priorityLabels,
 		issueDetails,
 		repo: ctx.repo,
@@ -506,16 +551,18 @@ async function runTriage(issueNumber: number, ctx: ActionContext): Promise<void>
 		comment += `\n\nI've opened a pull request with this fix: ${openedPr.html_url}`;
 	}
 
-	await postComment(ctx.repo, issueNumber, comment, ctx.writeToken);
+	await ctx.forge.postComment(issueNumber, comment, ctx.writeToken);
 	console.info(`Posted triage comment for issue #${issueNumber}.`);
 
 	// Determine and apply the new triage label.
 	const newLabel = resolveTriageLabel(triageResult, ctx, previewRelease, Boolean(openedPr));
 	console.info(`Swapping triage label from ${currentLabel ?? '(none)'} to ${newLabel}.`);
-	await swapLabel(ctx.repo, issueNumber, currentLabel, newLabel, ctx.writeToken);
+	await ctx.forge.swapLabel(issueNumber, currentLabel, newLabel, ctx.writeToken);
 
-	// Apply priority + package labels if the issue was reproduced.
-	if (triageResult.reproducible) {
+	// Apply priority + package labels if the issue was reproduced. Repos whose
+	// labels don't match the configured patterns have nothing to choose from —
+	// asking the model to pick from an empty list can never validate.
+	if (triageResult.reproducible && priorityLabels.length > 0) {
 		const selectedLabels = await selectTriageLabels(session, {
 			comment,
 			priorityLabels,
@@ -523,7 +570,11 @@ async function runTriage(issueNumber: number, ctx: ActionContext): Promise<void>
 		});
 		console.info('Selected additional labels:', selectedLabels);
 		if (selectedLabels.length > 0) {
-			await addLabels(ctx.repo, issueNumber, selectedLabels, ctx.writeToken);
+			await ctx.forge.addLabels(issueNumber, selectedLabels, ctx.writeToken);
 		}
+	} else if (triageResult.reproducible) {
+		console.info(
+			'Skipping priority/package labelling: no repo labels matched the configured patterns.',
+		);
 	}
 }

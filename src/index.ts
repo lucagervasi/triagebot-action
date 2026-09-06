@@ -1,24 +1,35 @@
 /**
- * Entry point for the triagebot GitHub Action.
+ * Entry point for the triagebot action.
  *
- * Reads the GitHub event payload and action inputs, routes to the
- * appropriate handler via the FSM router.
+ * Reads the webhook payload and action inputs, resolves which forge it is
+ * running against, then routes to the appropriate handler via the FSM router.
  */
 
 import { readFileSync } from 'node:fs';
 import type { ActionContext } from './context.ts';
+import {
+	createForge,
+	defaultBotLogins,
+	detectForgeKind,
+	type ForgeKind,
+	isForgeKind,
+	type LabelPatterns,
+	parseWebhookEvent,
+	resolveApiUrl,
+	resolveServerUrl,
+} from './forge/index.ts';
 import { handleCleanup } from './handlers/cleanup.ts';
 import { handleRetriage } from './handlers/retriage.ts';
 import { handleTriage } from './handlers/triage.ts';
 import { handleVerifyFix } from './handlers/verify-fix.ts';
 import { getInput } from './input.ts';
 import { labelConfigFromInputs } from './labels.ts';
-import { type GitHubEvent, route } from './router.ts';
+import { route, type TriageEvent } from './router.ts';
 
-// ---------- GitHub Actions helpers ----------
+// ---------- Input helpers ----------
 
-function parseBotLogins(input: string): string[] {
-	const defaults = ['github-actions[bot]'];
+function parseBotLogins(input: string, kind: ForgeKind): string[] {
+	const defaults = defaultBotLogins(kind);
 	if (!input) return defaults;
 	const extra = input
 		.split(',')
@@ -35,10 +46,30 @@ function getRequiredInput(name: string): string {
 	return value;
 }
 
+function resolveForgeKind(): ForgeKind {
+	const explicit = getInput('forge');
+	if (!explicit) return detectForgeKind();
+	if (!isForgeKind(explicit)) {
+		throw new Error(`Unsupported "forge" input: "${explicit}". Expected "github" or "gitea".`);
+	}
+	return explicit;
+}
+
+function resolveLabelPatterns(): LabelPatterns | undefined {
+	const priority = getInput('priority-label-pattern');
+	const pkg = getInput('package-label-pattern');
+	if (!priority && !pkg) return undefined;
+	return {
+		priority: priority ? new RegExp(priority) : /^- P\d/,
+		package: pkg ? new RegExp(pkg) : /^pkg:/,
+	};
+}
+
 // ---------- Main ----------
 
 async function main(): Promise<void> {
-	// Read the GitHub event payload.
+	// Read the webhook payload. GitHub Actions and Gitea Actions both write it
+	// to GITHUB_EVENT_PATH.
 	const eventPath = process.env.GITHUB_EVENT_PATH;
 	if (!eventPath) {
 		throw new Error('GITHUB_EVENT_PATH is not set');
@@ -50,10 +81,25 @@ async function main(): Promise<void> {
 		throw new Error('GITHUB_REPOSITORY is not set');
 	}
 
+	const kind = resolveForgeKind();
+	const serverUrl = resolveServerUrl(getInput('server-url') || null);
+	const apiUrl = resolveApiUrl(kind, serverUrl, getInput('api-url') || null);
+	console.info(`Forge: ${kind} (server=${serverUrl}, api=${apiUrl})`);
+
+	const forge = createForge({
+		kind,
+		repo,
+		serverUrl,
+		apiUrl,
+		labelPatterns: resolveLabelPatterns(),
+	});
+
 	// Build the action context from inputs.
 	const labels = labelConfigFromInputs(getInput);
 	const ctx: ActionContext = {
+		forge,
 		repo,
+		baseBranch: getInput('base-branch') || 'main',
 		readToken: getRequiredInput('read-token'),
 		writeToken: getRequiredInput('write-token'),
 		anthropicApiKey: getInput('anthropic-api-key') || null,
@@ -64,10 +110,11 @@ async function main(): Promise<void> {
 		prSkillName: getInput('pr-skill-name') || 'pr-writer',
 		autoPrOnFix: getInput('auto-pr-on-fix') === 'true',
 		buildCommand: getInput('build-command') || null,
+		previewReleaseCommand: getInput('preview-release-command') || null,
 		triageModel: getInput('triage-model') || 'anthropic/claude-opus-4-6',
 		verificationModel: getInput('verification-model') || 'anthropic/claude-sonnet-4-6',
 		labels,
-		botLogins: parseBotLogins(getInput('bot-logins')),
+		botLogins: parseBotLogins(getInput('bot-logins'), kind),
 	};
 
 	// Validate provider credentials before touching any globals so we don't
@@ -98,20 +145,13 @@ async function main(): Promise<void> {
 	}
 
 	// Parse the event into the shape the router expects.
-	const issue = payload.issue;
-	if (!issue) {
+	const parsed = parseWebhookEvent(payload);
+	if (!parsed) {
 		console.info('No issue in event payload, nothing to do.');
 		return;
 	}
 
-	const event: GitHubEvent = {
-		action: payload.action,
-		isPullRequest: !!issue.pull_request,
-		issueNumber: issue.number,
-		issueLabels: (issue.labels ?? []).map((l: { name: string }) => l.name),
-		commentAuthor: payload.comment?.user?.login,
-		botLogins: ctx.botLogins,
-	};
+	const event: TriageEvent = { ...parsed, botLogins: ctx.botLogins };
 
 	const action = route(event, labels);
 	console.info(`Router decision: ${action.type}`, action);

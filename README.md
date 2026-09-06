@@ -1,6 +1,8 @@
 # triagebot-action
 
-AI-powered issue triage bot for GitHub repositories. Uses a label-driven state machine to automatically reproduce bugs, diagnose root causes, attempt fixes, and verify them with reporters.
+AI-powered issue triage bot. Uses a label-driven state machine to automatically reproduce bugs, diagnose root causes, attempt fixes, and verify them with reporters.
+
+Runs on **GitHub** (github.com and Enterprise Server) and on **self-hosted Gitea**. See [Running on Gitea](#running-on-gitea).
 
 ## How it works
 
@@ -173,16 +175,23 @@ Workers AI is called over its OpenAI-compatible REST endpoint, so the action sti
 
 | Input | Required | Default | Description |
 |-------|----------|---------|-------------|
-| `read-token` | Yes | | GitHub token for reading issues/labels/PRs |
-| `write-token` | Yes | | GitHub token for posting comments, pushing branches, creating PRs |
+| `forge` | No | auto | Code host: `github` or `gitea`. Auto-detected from `GITEA_ACTIONS` |
+| `server-url` | No | `$GITHUB_SERVER_URL` | Web base URL of the forge |
+| `api-url` | No | derived | REST API base. Defaults to `$GITHUB_API_URL`, else `https://api.github.com` / `<server>/api/v3` / `<server>/api/v1` |
+| `base-branch` | No | `main` | Branch fixes are diffed against and PRs target |
+| `read-token` | Yes | | Token for reading issues/labels/PRs |
+| `write-token` | Yes | | Token for posting comments, pushing branches, creating PRs |
 | `anthropic-api-key` | No¹ | | Anthropic API key for LLM calls |
 | `cloudflare-api-key` | No¹ | | Cloudflare API token with Workers AI access. Enables `cloudflare-workers-ai/*` models. Requires `cloudflare-account-id` |
 | `cloudflare-account-id` | No¹ | | Cloudflare account ID for the Workers AI REST endpoint. Required when `cloudflare-api-key` is set |
 | `triage-skill` | Yes | | Path to triage skill directory (`SKILL.md`, `reproduce.md`, etc.) |
 | `pr-skill` | No | | Path to PR writer skill directory. If not provided, uses a built-in prompt. |
 | `auto-pr-on-fix` | No | `false` | When `true`, open a PR immediately after triage finds and pushes a fix, skipping the preview/confirmation flow. |
-| `bot-logins` | No | | Comma-separated list of bot usernames whose comments should be ignored. `github-actions[bot]` is always included. |
+| `bot-logins` | No | | Comma-separated list of bot usernames whose comments should be ignored. The forge's own Actions bot is always included. |
 | `build-command` | No | | Command to build the project before triage |
+| `preview-release-command` | No | | Command that publishes a testable preview and prints one install URL per line. `{packages}` is replaced with the changed package directories. Required for the preview flow on any forge other than github.com |
+| `priority-label-pattern` | No | `^- P\d` | Regex matching the repo labels that represent priority |
+| `package-label-pattern` | No | `^pkg:` | Regex matching the repo labels that represent packages/areas |
 | `triage-model` | No | `anthropic/claude-opus-4-6` | Model for the triage pipeline (`provider/model-id`, e.g. `cloudflare-workers-ai/@cf/moonshotai/kimi-k2.7-code`) |
 | `verification-model` | No | `anthropic/claude-sonnet-4-6` | Model for fix verification and retriage checks |
 
@@ -206,11 +215,38 @@ All labels are customizable. These are the defaults:
 | `label-fix-verified` | `triage: fix verified` |
 | `pr-label-fix-verified` | `fix verified` |
 
+## Running on Gitea
+
+A ready-to-copy workflow lives at [`examples/workflows/gitea-triage.yml`](examples/workflows/gitea-triage.yml). What differs from GitHub:
+
+**Runner and Node version.** `runs.using: node24` is not optional — `@flue/runtime` declares `engines: >=22.18.0` and the bundle calls `process.getBuiltinModule` (Node 22.3+). Older `act_runner` builds only accept `[composite docker node12 node16 node20 go]` and will refuse to load the action. Either update `act_runner`, or use the example workflow, which invokes `node dist/index.mjs` directly with a Node from `setup-node` and never consults `runs.using`.
+
+**No preview releases.** The built-in publisher targets pkg.pr.new, which authenticates through a GitHub App on github.com and cannot reach a self-hosted instance. Two options:
+
+- `auto-pr-on-fix: true` — the bot opens a pull request as soon as it has a verified fix, skipping the `fix pending → fix verified` confirmation flow entirely. Simplest, and what the example uses.
+- `preview-release-command: <your command>` — keeps the confirmation flow. The command must exit 0 and print one install URL per line; `{packages}` is replaced with the changed package directories.
+
+If neither is set the bot still triages, comments, and pushes fix branches — it just never reaches `fix pending`.
+
+**Labels are created for you.** Gitea addresses issue labels by numeric id and, unlike GitHub, will not create a label implicitly when it is applied. The adapter resolves names to ids and creates any missing triage label (neutral grey) on first use, so you do not have to seed the ten state labels by hand. Set `priority-label-pattern` / `package-label-pattern` to match your own naming — the defaults follow Astro's `- P1` / `pkg:` convention, and a repo where nothing matches simply skips priority/package labelling.
+
+**`concurrency:` is ignored by Gitea.** Two comments arriving close together can start two triage runs on the same issue. If that matters, cap the runner at one concurrent job for the repository.
+
+**Token.** `write-token` needs write access to issues and contents. Pushes use the token as the basic-auth username (`https://<token>@<host>/<owner>/<repo>.git`), the form Gitea accepts regardless of which user owns it.
+
+**External actions.** `actions/checkout` and `actions/setup-node` are fetched from github.com unless your instance mirrors them; on an air-gapped instance configure `[actions] DEFAULT_ACTIONS_URL` accordingly.
+
+**Network.** The agent needs to reach the Anthropic (or Cloudflare Workers AI) API from the runner. That is a hard requirement independent of the forge.
+
+### GitLab
+
+Not supported. GitLab has no pipeline trigger for issue comments — `CI_PIPELINE_SOURCE` covers push, merge requests, schedules, and API triggers only — so the event half of this action has no equivalent. Supporting it means a webhook receiver or a long-running bot process, not another `ForgeClient`.
+
 ## Architecture
 
 The action has two layers:
 
-**Action-owned** — the state machine, GitHub API interactions, and LLM calls that drive the workflow:
+**Action-owned** — the state machine, forge API interactions, and LLM calls that drive the workflow:
 - FSM routing based on event type and current label
 - Re-triage evaluation (is there new actionable information?)
 - Fix verification (did the reporter confirm the fix?)
@@ -222,7 +258,21 @@ The action has two layers:
 - **Triage skills** (required) — how to reproduce, diagnose, verify, and fix bugs
 - **PR writer skill** (optional) — how to format PR titles and bodies for your project
 
-The action invokes project skills via [Flue](https://github.com/anthropics/flue), an agent orchestration framework. The AI agent runs shell commands on the GitHub Actions runner to build, test, and debug the project.
+The action invokes project skills via [Flue](https://github.com/anthropics/flue), an agent orchestration framework. The AI agent runs shell commands on the CI runner to build, test, and debug the project.
+
+### Forge abstraction
+
+Everything host-specific lives in [`src/forge/`](src/forge/). `ForgeClient` is the single interface the handlers talk to; `GitHubForge` and `GiteaForge` implement it, and `src/forge/event.ts` normalizes the webhook payload. The state machine, handlers, and prompts contain no forge-specific URLs or field names.
+
+```
+src/forge/
+  types.ts    normalized Issue / Comment / Label / PullRequest models
+  client.ts   ForgeClient interface + shared HTTP plumbing
+  github.ts   github.com and GitHub Enterprise Server
+  gitea.ts    self-hosted Gitea
+  event.ts    webhook payload → normalized event
+  index.ts    host detection and client construction
+```
 
 ## Development
 

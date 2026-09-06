@@ -6,6 +6,7 @@ await esbuild.build({
 	outfile: 'dist/index.mjs',
 	format: 'esm',
 	platform: 'node',
+	// @flue/runtime requires Node >= 22.18, so there is no point targeting lower.
 	target: 'node22',
 	external: ['@mongodb-js/zstd', 'node-liblzma'],
 	sourcemap: true,

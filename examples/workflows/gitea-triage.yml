@@ -1,0 +1,90 @@
+# Issue triage on a self-hosted Gitea instance.
+#
+# This workflow invokes the bundle directly with `run:` instead of `uses:`.
+# That is deliberate: `runs.using: node24` in action.yml is required by
+# @flue/runtime (engines >= 22.18), but older Gitea act_runners only accept
+# [composite docker node12 node16 node20 go] and would refuse to load the
+# action. Calling `node dist/index.mjs` with a Node supplied by setup-node
+# works on every act_runner version.
+#
+# If your act_runner is recent enough to accept `node24`, you can replace the
+# whole "Run triagebot" step with:
+#
+#   - uses: https://github.com/withastro/triagebot-action@v1
+#     with:
+#       forge: gitea
+#       read-token: ${{ secrets.GITEA_TOKEN }}
+#       ...
+#
+# Inputs are passed as INPUT_<NAME> environment variables — the same convention
+# the action reads when launched by `uses:`.
+
+name: Issue Triage
+
+on:
+  issues:
+    types: [opened, reopened, closed]
+  issue_comment:
+    types: [created]
+
+# NOTE: Gitea ignores `concurrency:`. Two comments arriving close together can
+# start two triage runs for the same issue. Limit the runner to one concurrent
+# job for this repository if that matters to you.
+
+jobs:
+  triage:
+    # Skip pull requests and the bot's own comments.
+    if: >-
+      !github.event.issue.pull_request &&
+      (github.event.action != 'created' ||
+       github.event.comment.user.login != 'gitea-actions[bot]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout project
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Checkout triagebot
+        uses: actions/checkout@v4
+        with:
+          repository: withastro/triagebot-action
+          ref: v1
+          path: .triagebot
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          # Must be >= 22.18 for @flue/runtime.
+          node-version: 22
+
+      - name: Build triagebot
+        working-directory: .triagebot
+        run: |
+          npm install
+          npm run build
+
+      - name: Configure Git identity
+        run: |
+          git config user.name "gitea-actions[bot]"
+          git config user.email "gitea-actions[bot]@noreply.localhost"
+
+      - name: Run triagebot
+        run: node .triagebot/dist/index.mjs
+        env:
+          INPUT_FORGE: gitea
+          # server-url and api-url are optional: Gitea Actions already exports
+          # GITHUB_SERVER_URL and GITHUB_API_URL for its own instance.
+          INPUT_BASE-BRANCH: main
+          INPUT_READ-TOKEN: ${{ secrets.GITEA_TOKEN }}
+          INPUT_WRITE-TOKEN: ${{ secrets.TRIAGEBOT_TOKEN }}
+          INPUT_ANTHROPIC-API-KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          INPUT_TRIAGE-SKILL: .agents/skills/triage
+          # pkg.pr.new cannot serve a self-hosted forge, so previews are off and
+          # the bot opens pull requests directly once it has a verified fix.
+          INPUT_AUTO-PR-ON-FIX: 'true'
+          # Match your own label naming; the defaults follow Astro's convention.
+          INPUT_PRIORITY-LABEL-PATTERN: '^prio/'
+          INPUT_PACKAGE-LABEL-PATTERN: '^area/'

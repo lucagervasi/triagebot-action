@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, it } from 'node:test';
 import type { ActionContext } from '../../src/context.ts';
+import { createForge } from '../../src/forge/index.ts';
 import { handleTriage } from '../../src/handlers/triage.ts';
 import { labelConfigFromInputs } from '../../src/labels.ts';
 
@@ -78,7 +79,15 @@ describe('handleTriage integration', () => {
 	it('does not reject because triage-skill is provided as an action input directory path', async () => {
 		mockGitHubApi();
 		const ctx: ActionContext = {
+			forge: createForge({
+				kind: 'github',
+				repo: 'withastro/astro',
+				serverUrl: 'https://github.com',
+				apiUrl: 'https://api.github.com',
+			}),
 			repo: 'withastro/astro',
+			baseBranch: 'main',
+			previewReleaseCommand: null,
 			readToken: 'read-token',
 			writeToken: 'write-token',
 			anthropicApiKey: 'anthropic-key',

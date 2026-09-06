@@ -4,7 +4,7 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
-import { gitCommit } from '../src/github.ts';
+import { gitCommit } from '../src/git.ts';
 
 const originalCwd = process.cwd();
 let repo: string | null = null;

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import type { LabelConfig } from '../src/labels.ts';
-import type { GitHubEvent } from '../src/router.ts';
+import type { TriageEvent } from '../src/router.ts';
 import { route } from '../src/router.ts';
 
 const labels: LabelConfig = {
@@ -18,7 +18,7 @@ const labels: LabelConfig = {
 	prFixVerified: 'fix verified',
 };
 
-function event(overrides: Partial<GitHubEvent>): GitHubEvent {
+function event(overrides: Partial<TriageEvent>): TriageEvent {
 	return {
 		action: 'opened',
 		isPullRequest: false,

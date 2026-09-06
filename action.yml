@@ -1,13 +1,26 @@
 name: 'Triagebot'
-description: 'AI-powered issue triage bot with a label-driven state machine'
+description: 'AI-powered issue triage bot with a label-driven state machine. Runs on GitHub and on self-hosted Gitea.'
 author: 'withastro'
 
 inputs:
+  forge:
+    description: 'Code host: "github" or "gitea". Leave empty to auto-detect (Gitea Actions sets GITEA_ACTIONS=true).'
+    required: false
+  server-url:
+    description: 'Web base URL of the forge (e.g. https://gitea.example.com). Defaults to GITHUB_SERVER_URL.'
+    required: false
+  api-url:
+    description: 'REST API base URL. Defaults to GITHUB_API_URL, else https://api.github.com for github.com, <server>/api/v3 for GitHub Enterprise, <server>/api/v1 for Gitea.'
+    required: false
+  base-branch:
+    description: 'Branch that fixes are diffed against and pull requests target'
+    default: 'main'
+
   read-token:
-    description: 'GitHub token for reading issues, labels, and PRs'
+    description: 'Token for reading issues, labels, and PRs'
     required: true
   write-token:
-    description: 'GitHub token for posting comments, pushing branches, creating PRs, and managing labels'
+    description: 'Token for posting comments, pushing branches, creating PRs, and managing labels'
     required: true
   anthropic-api-key:
     description: 'Anthropic API key for LLM calls. Required unless Cloudflare Workers AI credentials are provided.'
@@ -34,10 +47,24 @@ inputs:
   build-command:
     description: 'Command to build the project before triage runs (e.g. "pnpm install && pnpm build")'
     required: false
+  preview-release-command:
+    description: >-
+      Shell command that publishes a testable preview build and prints one install URL per line.
+      "{packages}" is replaced with the changed package directories.
+      Required for the reporter-confirmation flow on any forge other than github.com, since the
+      built-in pkg.pr.new publisher only works there. Leave empty and set auto-pr-on-fix to skip previews.
+    required: false
 
   bot-logins:
-    description: 'Comma-separated list of bot usernames whose comments should be ignored (github-actions[bot] is always included)'
+    description: 'Comma-separated list of bot usernames whose comments should be ignored (the forge''s own Actions bot is always included)'
     default: ''
+
+  priority-label-pattern:
+    description: 'Regex matching the repo labels that represent priority. Default matches the Astro convention.'
+    default: '^- P\d'
+  package-label-pattern:
+    description: 'Regex matching the repo labels that represent packages/areas. Default matches the Astro convention.'
+    default: '^pkg:'
 
   triage-model:
     description: 'Model for the triage pipeline (reproduce/diagnose/verify/fix)'
@@ -82,5 +109,9 @@ inputs:
     default: 'fix verified'
 
 runs:
+  # Must stay >= node22: @flue/runtime declares engines ">=22.18.0" and the
+  # bundle calls process.getBuiltinModule (Node 22.3+). Older Gitea act_runners
+  # reject anything above node20 — see "Running on Gitea" in the README for the
+  # direct-invocation workflow that sidesteps runs.using entirely.
   using: 'node24'
   main: 'dist/index.mjs'
